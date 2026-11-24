@@ -120,6 +120,29 @@
     flex:1;
   }
   @media (min-width:768px){ .card .points{font-size:18px} }
+
+  /* ---------- practice ---------- */
+  .practice{margin-top:14px;border-top:2px dashed var(--border);padding-top:12px}
+  .practice h3{font-size:16px;font-weight:800;margin-bottom:4px}
+  .pq{margin-top:10px}
+  .pq .q{font-size:16px;line-height:1.65;font-weight:600}
+  .pq .q .no{
+    display:inline-block;min-width:22px;height:22px;line-height:22px;
+    text-align:center;border-radius:50%;color:#fff;font-size:13px;
+    font-weight:800;margin-right:6px;vertical-align:2px;
+  }
+  .pq .ans-btn{
+    margin-top:6px;border:2px solid;border-radius:999px;background:#fff;
+    padding:5px 16px;font-size:15px;font-weight:800;min-height:2.25rem;
+    transition:transform .08s ease, box-shadow .08s ease;
+  }
+  .pq .ans-btn:active{transform:translateY(2px)}
+  .pq .ans{
+    display:none;margin-top:8px;background:#FBF6EC;border-radius:12px;
+    padding:10px 12px;font-size:16px;line-height:1.7;white-space:pre-line;
+  }
+  .pq .ans.open{display:block}
+  .pq .ans .ans-label{font-weight:800}
   footer{padding:0 16px 40px;text-align:center;font-size:14px;color:var(--dim)}
 
   /* ---------- back to top ---------- */
@@ -361,6 +384,53 @@
       p.className = "points";
       p.textContent = card.points;
       body.appendChild(p);
+
+      if (card.practice && card.practice.length) {
+        var prac = document.createElement("div");
+        prac.className = "practice";
+        var ph = document.createElement("h3");
+        ph.style.color = color;
+        ph.textContent = "练一练（先自己想，再看答案）";
+        prac.appendChild(ph);
+        card.practice.forEach(function (item, qi) {
+          var qd = document.createElement("div");
+          qd.className = "pq";
+          var qp = document.createElement("p");
+          qp.className = "q";
+          var no = document.createElement("span");
+          no.className = "no";
+          no.style.backgroundColor = color;
+          no.textContent = qi + 1;
+          qp.appendChild(no);
+          qp.appendChild(document.createTextNode(item.q));
+          qd.appendChild(qp);
+          var ans = document.createElement("div");
+          ans.className = "ans";
+          var lab = document.createElement("span");
+          lab.className = "ans-label";
+          lab.style.color = color;
+          lab.textContent = "答案：";
+          ans.appendChild(lab);
+          ans.appendChild(document.createTextNode(item.a));
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "ans-btn";
+          btn.style.borderColor = color;
+          btn.style.color = color;
+          btn.style.boxShadow = "0 3px 0 " + darken(color, 0.72);
+          btn.textContent = "看答案";
+          btn.setAttribute("aria-expanded", "false");
+          btn.addEventListener("click", function () {
+            var open = ans.classList.toggle("open");
+            btn.textContent = open ? "收起答案" : "看答案";
+            btn.setAttribute("aria-expanded", open ? "true" : "false");
+          });
+          qd.appendChild(btn);
+          qd.appendChild(ans);
+          prac.appendChild(qd);
+        });
+        body.appendChild(prac);
+      }
       article.appendChild(body);
 
       gridEl.appendChild(article);
