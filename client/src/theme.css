@@ -55,4 +55,16 @@ body {
   input:not([type="checkbox"], [type="radio"]) {
     min-height: 2.25rem;
   }
+
+  /* Tablet and up (iPad, MacBook windows): every tappable/clickable
+     control is at least 44px tall so kids hit them reliably. */
+  @media (min-width: 768px) {
+    button,
+    [role="button"],
+    select,
+    summary,
+    input:not([type="checkbox"], [type="radio"]) {
+      min-height: 2.75rem;
+    }
+  }
 }

@@ -50,6 +50,16 @@ export function App() {
   const [lightbox, setLightbox] = useState<Card | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // Esc closes the fullscreen image viewer (mouse/keyboard devices).
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox]);
+
   // One-time seeding of the preset categories + the 4 starter cards.
   const seedRef = useRef(false);
   const seed = useMutation({
@@ -219,7 +229,7 @@ export function App() {
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
       {/* Sticky top bar: search + add + category filter */}
       <header className="sticky top-0 z-20 bg-[var(--bg)]/95 pt-safe backdrop-blur">
-        <div className="mx-auto w-full max-w-3xl px-4 pb-3 pt-3">
+        <div className="mx-auto w-full max-w-3xl px-4 pb-3 pt-3 md:max-w-[1240px]">
           <div className="flex items-center gap-2">
             <label className="sr-only" htmlFor="card-search">
               搜索卡片
@@ -230,7 +240,7 @@ export function App() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="搜一搜：十字相乘、括号…"
-              className="min-w-0 flex-1 rounded-full border-[3px] border-[var(--border)] bg-white px-4 py-2 text-[17px] outline-none placeholder:text-[#B8A88F] focus:border-[var(--accent)]"
+              className="min-w-0 flex-1 rounded-full border-[3px] border-[var(--border)] bg-white px-4 py-2 text-[17px] outline-none placeholder:text-[#B8A88F] focus:border-[var(--accent)] md:max-w-[400px] lg:max-w-[460px]"
             />
             <button
               type="button"
@@ -285,7 +295,7 @@ export function App() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-2">
+      <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-2 md:max-w-[1240px]">
         {notice && (
           <div
             role="alert"
@@ -371,7 +381,7 @@ export function App() {
                 没找到这样的卡片，换个词试试，或者看看其他分类。
               </p>
             ) : (
-              <div className="grid gap-5 sm:grid-cols-2">
+              <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3 min-[1000px]:grid-cols-4 xl:grid-cols-5">
                 {visibleCards.map((card) => (
                   <CardItem
                     key={card.id}
@@ -412,6 +422,7 @@ export function App() {
           role="dialog"
           aria-modal="true"
           aria-label={lightbox.title}
+          onClick={() => setLightbox(null)}
         >
           <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-safe">
             <p className="min-w-0 truncate text-[17px] font-bold text-white">
@@ -431,7 +442,7 @@ export function App() {
               <img
                 src={lightbox.image_url}
                 alt={lightbox.title}
-                className="max-h-full w-auto max-w-full object-contain"
+                className="max-h-[92vh] w-auto max-w-[92vw] object-contain"
               />
             )}
           </div>
@@ -467,7 +478,7 @@ function CardItem({
 
   return (
     <article
-      className="flex flex-col overflow-hidden rounded-[var(--radius)] border-[3px] bg-white shadow-[0_2px_10px_rgba(43,33,24,0.06)]"
+      className="flex flex-col overflow-hidden rounded-[var(--radius)] border-[3px] bg-white shadow-[0_2px_10px_rgba(43,33,24,0.06)] transition duration-200 [@media(hover:hover)]:hover:-translate-y-1 [@media(hover:hover)]:hover:shadow-[0_10px_24px_rgba(43,33,24,0.14)]"
       style={{ borderColor: color }}
     >
       {card.image_url && (
@@ -494,11 +505,11 @@ function CardItem({
             {category.name}
           </span>
         )}
-        <h2 className="mt-2 text-[22px] font-extrabold leading-snug">
+        <h2 className="mt-2 text-[22px] font-extrabold leading-snug md:text-[24px]">
           {card.title}
         </h2>
         {card.points && (
-          <p className="mt-2 whitespace-pre-line text-[17px] leading-relaxed">
+          <p className="mt-2 whitespace-pre-line text-[17px] leading-relaxed md:text-[18px]">
             {card.points}
           </p>
         )}
@@ -572,6 +583,15 @@ function CardEditor({
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Esc closes the editor (mouse/keyboard devices).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   const save = useMutation({
     mutationFn: async () => {
       const img =
@@ -640,12 +660,12 @@ function CardEditor({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 sm:items-center"
+      className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label={card ? "编辑卡片" : "新增卡片"}
     >
-      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-[24px] bg-white p-5 pb-safe sm:rounded-[24px]">
+      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-[24px] bg-white p-5 pb-safe sm:rounded-[24px] md:max-w-[600px]">
         <div className="flex items-center justify-between">
           <h2 className="text-[22px] font-extrabold">
             {card ? "编辑卡片" : "新增卡片"}
@@ -798,6 +818,15 @@ function CategoryManager({
   const queryClient = useQueryClient();
   const [newName, setNewName] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // Esc closes the category manager (mouse/keyboard devices).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["library"] });
   const onErr = (e: unknown) =>
@@ -815,12 +844,12 @@ function CategoryManager({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 sm:items-center"
+      className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label="管理分类"
     >
-      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-[24px] bg-white p-5 pb-safe sm:rounded-[24px]">
+      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-[24px] bg-white p-5 pb-safe sm:rounded-[24px] md:max-w-[600px]">
         <div className="flex items-center justify-between">
           <h2 className="text-[22px] font-extrabold">管理分类</h2>
           <button
