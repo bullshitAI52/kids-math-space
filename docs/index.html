@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>小孩数学空间</title>
+<style>
+  :root{
+    color-scheme: light;
+    --bg:#FFF9F0;
+    --text:#2B2118;
+    --dim:#7A6A58;
+    --border:#F0E2CD;
+    --accent:#FF8A00;
+    --radius:20px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Yuanti SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+    min-height:100vh;
+  }
+  button{font-family:inherit;cursor:pointer;min-height:2.25rem}
+  @media (min-width:768px){ button, input{min-height:2.75rem} }
+
+  /* ---------- header ---------- */
+  header{
+    position:sticky;top:0;z-index:20;
+    background:rgba(255,249,240,.95);
+    backdrop-filter:blur(6px);
+    padding-top:env(safe-area-inset-top);
+  }
+  .wrap{margin:0 auto;width:100%;max-width:768px;padding:12px 16px 16px}
+  @media (min-width:768px){ .wrap{max-width:1240px} }
+  h1.page-title{font-size:26px;font-weight:900;letter-spacing:.02em}
+  h1.page-title .sub{font-size:15px;font-weight:700;color:var(--dim);margin-left:8px}
+  .search-row{display:flex;align-items:center;gap:8px;margin-top:10px}
+  #search{
+    flex:1;min-width:0;
+    border:3px solid var(--border);border-radius:999px;
+    background:#fff;padding:8px 16px;
+    font-size:17px;color:var(--text);outline:none;
+    font-family:inherit;
+  }
+  #search::placeholder{color:#B8A88F}
+  #search:focus{border-color:var(--accent)}
+  @media (min-width:768px){ #search{max-width:400px} }
+  @media (min-width:1024px){ #search{max-width:460px} }
+  .chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+  .chip{
+    border:3px solid;border-radius:999px;background:#fff;
+    padding:6px 16px;font-size:16px;font-weight:700;
+    transition:transform .08s ease;
+  }
+  .chip:active{transform:scale(.95)}
+  .chip.all{border-color:var(--border);color:var(--text)}
+  .chip.all.active{background:#2B2118;border-color:#2B2118;color:#fff}
+
+  /* ---------- main / grid ---------- */
+  main .wrap{padding-top:8px;padding-bottom:64px}
+  .count-line{font-size:15px;font-weight:700;color:var(--dim);margin-bottom:12px}
+  .grid{display:grid;gap:20px;grid-template-columns:1fr}
+  @media (min-width:640px){ .grid{grid-template-columns:repeat(2,1fr)} }
+  @media (min-width:768px){ .grid{grid-template-columns:repeat(3,1fr)} }
+  @media (min-width:1000px){ .grid{grid-template-columns:repeat(4,1fr)} }
+  @media (min-width:1280px){ .grid{grid-template-columns:repeat(5,1fr)} }
+  .empty{padding:48px 0;text-align:center;font-size:19px;font-weight:700;color:var(--dim)}
+
+  /* ---------- card ---------- */
+  .card{
+    display:flex;flex-direction:column;overflow:hidden;
+    background:#fff;border:3px solid;border-radius:var(--radius);
+    box-shadow:0 2px 10px rgba(43,33,24,.06);
+    transition:transform .2s ease, box-shadow .2s ease;
+  }
+  @media (hover:hover){
+    .card:hover{transform:translateY(-4px);box-shadow:0 10px 24px rgba(43,33,24,.14)}
+  }
+  .card .img-btn{
+    display:block;width:100%;background:#FBF6EC;border:none;padding:0;
+    min-height:0;
+  }
+  .card .img-btn img{
+    display:block;width:100%;max-height:380px;object-fit:contain;
+  }
+  .card .body{display:flex;flex:1;flex-direction:column;padding:16px}
+  .pill{
+    align-self:flex-start;border-radius:999px;padding:4px 12px;
+    font-size:14px;font-weight:800;color:#fff;
+  }
+  .card h2{margin-top:8px;font-size:22px;font-weight:800;line-height:1.35}
+  @media (min-width:768px){ .card h2{font-size:24px} }
+  .card .points{
+    margin-top:8px;font-size:17px;line-height:1.65;white-space:pre-line;
+  }
+  @media (min-width:768px){ .card .points{font-size:18px} }
+  footer{padding:0 16px 40px;text-align:center;font-size:14px;color:var(--dim)}
+
+  /* ---------- lightbox ---------- */
+  .lightbox{
+    position:fixed;inset:0;z-index:50;display:none;
+    flex-direction:column;background:rgba(0,0,0,.95);
+  }
+  .lightbox.open{display:flex}
+  .lightbox .bar{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:calc(8px + env(safe-area-inset-top)) 16px 8px;
+  }
+  .lightbox .bar p{
+    min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-size:17px;font-weight:700;color:#fff;
+  }
+  .lightbox .bar button{
+    flex-shrink:0;border:none;border-radius:999px;
+    background:rgba(255,255,255,.15);color:#fff;
+    padding:8px 16px;font-size:17px;font-weight:700;
+  }
+  .lightbox .bar button:active{transform:scale(.95)}
+  .lightbox .stage{
+    flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
+    overflow:auto;padding:12px;
+  }
+  .lightbox .stage img{max-width:92vw;max-height:92vh;object-fit:contain}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1 class="page-title">小孩数学空间<span class="sub">知识卡片墙</span></h1>
+    <div class="search-row">
+      <label for="search" style="position:absolute;left:-9999px">搜索卡片</label>
+      <input id="search" type="search" placeholder="搜一搜：十字相乘、括号…" autocomplete="off">
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <p class="count-line" id="countLine"></p>
+    <div class="grid" id="grid"></div>
+    <p class="empty" id="empty" style="display:none">没找到这样的卡片，换个词试试，或者看看其他分类。</p>
+  </div>
+</main>
+
+<footer>静态网页版：只能看卡片；要加卡、改卡，请回到「小孩数学空间」里操作。</footer>
+
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true">
+  <div class="bar">
+    <p id="lightboxTitle"></p>
+    <button type="button" id="lightboxClose">关闭</button>
+  </div>
+  <div class="stage">
+    <img id="lightboxImg" src="" alt="">
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  var CATEGORIES = [
+    { name: "乘法公式", color: "#FF5A5F" },
+    { name: "因式分解", color: "#2E9BFF" },
+    { name: "方程",     color: "#8B5CF6" },
+    { name: "数与计算", color: "#22B573" },
+    { name: "几何",     color: "#00A896" },
+    { name: "应用题",   color: "#FF6FA5" },
+    { name: "编程",     color: "#D9930D" }
+  ];
+  var colorOf = {};
+  CATEGORIES.forEach(function (c) { colorOf[c.name] = c.color; });
+
+  var cards = window.CARD_DATA || [];
+  var selected = "all";
+  var query = "";
+
+  var chipsEl = document.getElementById("chips");
+  var gridEl = document.getElementById("grid");
+  var countEl = document.getElementById("countLine");
+  var emptyEl = document.getElementById("empty");
+  var searchEl = document.getElementById("search");
+
+  function countFor(name) {
+    return cards.filter(function (c) { return c.category === name; }).length;
+  }
+
+  function renderChips() {
+    chipsEl.innerHTML = "";
+    var all = document.createElement("button");
+    all.type = "button";
+    all.className = "chip all" + (selected === "all" ? " active" : "");
+    all.textContent = "全部（" + cards.length + "）";
+    all.setAttribute("aria-pressed", selected === "all" ? "true" : "false");
+    all.addEventListener("click", function () { selected = "all"; render(); });
+    chipsEl.appendChild(all);
+    CATEGORIES.forEach(function (cat) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      var active = selected === cat.name;
+      b.setAttribute("aria-pressed", active ? "true" : "false");
+      if (active) {
+        b.style.backgroundColor = cat.color;
+        b.style.borderColor = cat.color;
+        b.style.color = "#fff";
+      } else {
+        b.style.borderColor = cat.color;
+        b.style.color = cat.color;
+      }
+      b.textContent = cat.name + "（" + countFor(cat.name) + "）";
+      b.addEventListener("click", function () { selected = cat.name; render(); });
+      chipsEl.appendChild(b);
+    });
+  }
+
+  function visibleCards() {
+    var q = query.trim().toLowerCase();
+    return cards.filter(function (c) {
+      if (selected !== "all" && c.category !== selected) return false;
+      if (!q) return true;
+      return c.title.toLowerCase().indexOf(q) !== -1 ||
+             c.points.toLowerCase().indexOf(q) !== -1;
+    });
+  }
+
+  function renderCards() {
+    var list = visibleCards();
+    gridEl.innerHTML = "";
+    list.forEach(function (card) {
+      var color = colorOf[card.category] || "#FF8A00";
+      var article = document.createElement("article");
+      article.className = "card";
+      article.style.borderColor = color;
+
+      var imgBtn = document.createElement("button");
+      imgBtn.type = "button";
+      imgBtn.className = "img-btn";
+      imgBtn.setAttribute("aria-label", "放大看图：" + card.title);
+      var img = document.createElement("img");
+      img.src = card.image;
+      img.alt = card.title;
+      img.loading = "lazy";
+      imgBtn.appendChild(img);
+      imgBtn.addEventListener("click", function () { openLightbox(card); });
+      article.appendChild(imgBtn);
+
+      var body = document.createElement("div");
+      body.className = "body";
+      var pill = document.createElement("span");
+      pill.className = "pill";
+      pill.style.backgroundColor = color;
+      pill.textContent = card.category;
+      body.appendChild(pill);
+      var h = document.createElement("h2");
+      h.textContent = card.title;
+      body.appendChild(h);
+      var p = document.createElement("p");
+      p.className = "points";
+      p.textContent = card.points;
+      body.appendChild(p);
+      article.appendChild(body);
+
+      gridEl.appendChild(article);
+    });
+
+    if (query.trim()) {
+      countEl.textContent = "找到 " + list.length + " 张卡片";
+    } else if (selected === "all") {
+      countEl.textContent = "一共 " + list.length + " 张卡片";
+    } else {
+      countEl.textContent = selected + " · " + list.length + " 张";
+    }
+    emptyEl.style.display = list.length === 0 ? "block" : "none";
+  }
+
+  function render() { renderChips(); renderCards(); }
+
+  searchEl.addEventListener("input", function () {
+    query = searchEl.value;
+    renderCards();
+  });
+
+  /* ---------- lightbox ---------- */
+  var lightbox = document.getElementById("lightbox");
+  var lbImg = document.getElementById("lightboxImg");
+  var lbTitle = document.getElementById("lightboxTitle");
+  function openLightbox(card) {
+    lbImg.src = card.image;
+    lbImg.alt = card.title;
+    lbTitle.textContent = card.title;
+    lightbox.classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+  function closeLightbox() {
+    lightbox.classList.remove("open");
+    lbImg.src = "";
+    document.body.style.overflow = "";
+  }
+  lightbox.addEventListener("click", closeLightbox);
+  document.getElementById("lightboxClose").addEventListener("click", closeLightbox);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && lightbox.classList.contains("open")) closeLightbox();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
