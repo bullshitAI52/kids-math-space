@@ -1,0 +1,8 @@
+{
+  "runtime": "typescript",
+  "platformVersion": 31,
+  "entry": "client/dist/index.html",
+  "name": "小孩数学空间",
+  "slug": "xiao-hai-shu-xue-kong-jian",
+  "managedCronJobs": []
+}

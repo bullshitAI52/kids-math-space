@@ -1,0 +1,73 @@
+# Data Plan
+
+## Context provenance
+- `平时看到好的知识点总结图（公式、方法、例题），就收进来，按分类放好，复习时按类翻看` (verbatim build request; shapes the whole artifact as a kid-facing knowledge-card library)
+- `先预置这几个分类：乘法公式、因式分解、方程、数与计算、几何、应用题` (verbatim build request; the six seed categories, inserted once by an idempotent seed action only when the categories table is empty)
+- `把用户这次发的 4 张图做成最初的 4 张卡片放进去` (verbatim build request; the four seed cards with exact titles, categories, and 要点 text supplied in the request — no invented content)
+
+## Tested sources
+### User-supplied images on disk (workspace/user/files/)
+**Used by**: seedCards action (post-submit populate) — reads the 4 JPEGs, stores each as a ctx.blobs blob, inserts the 4 cards with the exact request-supplied titles/categories/要点
+**Test command**: `ls -la` + `gm identify` on all four files in ~/workspace/user/files/
+**Sample output**: all four exist as JPEG — DC77C376…(方程/括号) 1170x638 299KiB; 23F5B712…(因式分解/十字相乘) 1170x780 259KiB; 8090C733…(乘法公式/差的平方) 1170x780 233KiB; 6632860E…(乘法公式/和的平方) 1170x2532 296KiB. Parent conversation also shows the images inline and they match the request's mapping.
+**Processing**: copied byte-for-byte into ctx.blobs at seed time (never hotlinked); cards store only image_blob_key. The 4th image (和的平方) is a tall phone screenshot (1170x2532) — rendered with object-fit contain in the card so nothing is cropped.
+
+### v3 batch: 13 cards added 2026-11-25 (two sends, processed once)
+**Used by**: seedLibraryV3 action (post-submit populate + client one-time trigger) — idempotent via meta key `seeded_v3`, also skips any title already present. Reads images via the privileged `readSeedImagesV3` contract; stores each as a ctx.blobs blob (`cards/seed-v3-<slot>`).
+**Original user images used as-is (4)**: workspace/user/files/2381FA76…jpg （什么是同旁内角/几何）, 76AFCF0A…jpg （平行四边形的同旁内角互补/几何）, 26020324…jpg （全等对应关系/几何）, 7F62555D…jpg （去括号规则/方程） — all verified present on disk (ls, Nov 24 20:39–20:43 UTC).
+**Redrawn clean diagrams (9)**, drawn programmatically (PIL, white background, colored lines, tick marks/angle arcs, exact formulas — no screen/keyboard/handwriting), stored in server/assets/: square-speed.png （完全平方速算/乘法公式）, bracket-first.png （去括号 −2(x−2)/方程）, congruence-five.png （全等判定五法/几何）, segment-add.png （线段加减/几何）, overlap-split.png （叠放三角形/几何）, kite-common.png （风筝形公共边/几何）, common-angle.png （先证全等得线段相等/几何）, combine-terms.png （合并同类项/方程）, bracket-equation.png （带括号方程例题/方程）. Each rendered PNG was visually inspected before wiring in.
+**Deliberately not carded** (per the brief): the duplicate exercise-page lower half, the handwritten drafts of the correspondence card, and the bracket-equation problem sheet — their content is covered by the cards above.
+
+### v4 batch: 6 cards added 2026-11-25 (third send)
+**Used by**: seedLibraryV4 action — same idempotent pattern as v3 (meta key `seeded_v4`, title de-dupe), images via privileged `readSeedImagesV4`, blobs at `cards/seed-v4-<slot>`.
+**Original user images used as-is (3)**: workspace/user/files/4372CAB2…jpg （平行四边形内错角相等/几何）, 31AF1719…jpg （平行线判定/几何）, 30EC510D…jpg （减正数=加负数/数与计算） — verified present on disk (ls, Nov 24 20:45 UTC).
+**Redrawn clean diagrams (3)**, drawn programmatically like the v3 diagrams, stored in server/assets/: diff-squares.png （平方差面积拼图/乘法公式）, inequality-right.png （解不等式例题/方程）, cow-grass.png （牛吃草牧场示意图/应用题）. Each visually inspected before wiring in.
+**Deliberately not carded** (per the brief): the full-screen duplicate of the CAD平方差图， the handwritten 内错角 notes (covered by the finished card), the duplicate 去括号规则 finished image (already in v3), and a handwritten equation worksheet whose middle step doesn't check out.
+
+### v5 batch: 5 cards added 2026-11-25 (fourth send)
+**Used by**: seedLibraryV5 action — same idempotent pattern as v3/v4 (meta key `seeded_v5`, title de-dupe), images via privileged `readSeedImagesV5`, blobs at `cards/seed-v5-<slot>`.
+**Original user images used as-is (2)**: workspace/user/files/45118E85…jpg （存钱大作战：列不等式/应用题）, 69F342B2…jpg （提公因式法：先找公因式/因式分解） — verified present on disk (ls + gm identify, Nov 24 20:49 UTC).
+**Redrawn clean diagrams (3)**, drawn programmatically (PIL, same pastel-panel style as v3/v4), stored in server/assets/: sign-rules.png （符号乘法口诀表+去括号例子/方程）, split-equation.png (ax + b(c − x) = d 两道例题/方程）, inequality-move.png （不等式移项两例、不等号标红/方程）. Each visually inspected before wiring in.
+**Deliberately not carded** (per the brief): the two duplicate 「双方法大对决」 posters (already card #1), the handwritten 去括号 slip (already carded in batch 1), the problem-only handwritten sheet (covered by 合并同类项 and the split-equation card), and the worked 10 + 5x ≥ 25 sheet whose process is wrong (correct method distilled into the inequality-move card).
+
+### v6 batch: 3 math cards added 2026-11-25 (fifth send; the same send's 7 programming images deliberately NOT carded, pending the user's decision on where they belong)
+**Used by**: seedLibraryV6 action — same idempotent pattern as v3–v5 (meta key `seeded_v6`, title de-dupe), images via privileged `readSeedImagesV6`, blobs at `cards/seed-v6-<slot>`.
+**Redrawn clean diagrams (3)**, drawn programmatically (PIL, same pastel-panel style as v3–v5), stored in server/assets/: arithmetic-seq.png （等差数列通项+求和/数与计算；源图为打印讲义 CF8F0DF4…jpg), tree-planting.png （三棵树两个间隔/应用题；源图为手写推导 C7BA9E12…jpg), chicken-rabbit.png （鸡兔图+假设法四步/应用题；源图为手写矩阵解法 9A95A76C…jpg，其最终答案对不上，未照搬——卡片用任务书给定的假设法与正确答案：兔 2 只、鸡 46 只）. Each visually inspected before wiring in (first pass had text overflow/overlap, fixed and re-inspected).
+**Deliberately not carded** (per the brief): the 7 programming images from the same send （封装/类与对象/OOP 三要素/Python 语法卡等） — held at the time pending the user's decision; the user later decided to file them in this space under a new 「编程」category, and 6 of them were carded in the v7 batch below (the 7th, a Python 基本类 note, duplicates the class/object cards and stays out).
+
+### v7 batch: 11 cards added 2026-11-25 (sixth + seventh sends, plus the programming cards held over from the fifth send)
+**Used by**: seedLibraryV7 action — same idempotent pattern as v3–v6 (meta key `seeded_v7`, title de-dupe), images via privileged `readSeedImagesV7`, blobs at `cards/seed-v7-<slot>`. Also creates the new category 「编程」 (color amber, appended after the existing categories) if it does not already exist — the user explicitly decided to file the programming cards in this space under a 编程 category.
+**Original user images used as-is (5)**: workspace/user/files/74A91C1D…jpg （类与对象：模板和实例/编程）, 9A1FD9DF…jpg （类是模具，对象是产品/编程）, AFF368A2…jpg （等差数列像种树/数与计算）, 466E4C7B…jpg （牛吃草：什么时候草吃不完/应用题）, 9768324C…jpg （正数前面的"+"号可以省略/数与计算） — all verified present on disk (ls, Nov 24 20:52–20:59 UTC).
+**Redrawn clean diagrams (6)**, drawn programmatically (PIL, same pastel-panel style as v3–v6), stored in server/assets/: encapsulation.png （封装带锁盒子+遥控小车/编程；源图 24D39E57…jpg 海报小字乱码）, abstraction-fruit.png （苹果/香蕉/梨抽象成水果/编程；源图 0CC462D9…jpg 手写笔记）, oop-three.png （封装/继承/多态三格图/编程；源图 C95FD536…jpg 手写笔记）, python-symbols.png (Python 符号对照表/编程；源图 CD6827CC…jpg 底部符号表乱码）, elimination.png （加减消元法例题演算/方程；源图 93B17A3C…jpg 手写演算，数字已核：15y=750、y=50、x=80、验算 930 ✓), cow-grass-parts.png （牛吃草设份数牧场图/应用题；源图 10E10C64…jpg 打印讲义，数字已核：y=10、x=100). Each visually inspected before wiring in (encapsulation remote/label overlap found and fixed).
+**Deliberately not carded** (per the brief): 596A505A…jpg (class Cat 手写稿，第 5 张成品图已覆盖）, D58B5338…jpg （等差数列讲义，与已入卡素材重复）, CFBDAE10…jpg （植树间隔手写稿，已做成卡）, CC1610E7…jpg （鸡兔同笼矩阵稿，已有假设法卡）, C727DD3B…jpg （与消元法卡同一张方程组演算）, C6CB6587…jpg （牛吃草成品海报，空间已有牛吃草卡）, F5FF1910…jpg (Python 基本类笔记，与第 2、5 张编程卡重复）, 4BE4E0F8…jpg 与 19B08DFF…jpg （去括号规则原图与网页截图，已入卡）, CECD87BA…jpg （第 1 张卡「双方法大对决」）, 1DBAAB17…jpg （减正数=加负数，已入卡）, B66FFD84…jpg （只有一道不等式题目、无内容）, 724439F2…jpg、B62FA857…jpg、252826E7…jpg （非学习内容截图/手写杂记）。
+
+### v8 batch: 7 new cards + 2 handwritten-image replacements added 2026-11-25
+**Used by**: seedLibraryV8 action — same idempotent pattern as v3–v7 (meta key `seeded_v8`, title de-dupe for the new cards), images via privileged `readSeedImagesV8`, new-card blobs at `cards/seed-v8-<slot>`.
+**New cards (7)**, titles/要点 verbatim from the brief, all diagrams redrawn programmatically (PIL, same pastel-panel style as v3–v7), stored in server/assets/: rational-tree.png （有理数全家福：分类图/数与计算，树状分类图+按符号分三大类）, opposite-abs.png （相反数与绝对值/数与计算，数轴标 −5、0、5 与到原点的距离弧）, rational-addsub.png （有理数加减法：同号异号分开算/数与计算，法则对照表）, rational-muldiv.png （有理数乘除法：先定符号再算数/数与计算，符号法则表）, ineq-properties.png （不等式三条基本性质/方程，第三条红框标红）, ineq-steps.png （一元一次不等式：解法五步加数轴解集/方程，五步流程+2 处空心圈向右画线）, ineq-system.png （不等式组：解集口诀/方程，四种情形数轴小图）. Each visually inspected before wiring in (first pass: 数轴标签重复、图例圆点压字、猫图溢出面板，均已修好重看).
+**Handwritten-photo audit of all 42 existing cards** (the brief's second task): every card image was checked. All v3–v6 redraws are already clean PNGs; the user photos used as-is are finished printed posters/teaching cards （双方法大对决、十字相乘、差的平方、同旁内角两张、全等对应关系、去括号规则、内错角两张、减正数=加负数、存钱大作战、提公因式、类与对象 Dog 海报、正数"+"号省略、等差种树） — untouched per the brief. Exactly 2 cards carry handwritten photos:
+- 「牛吃草：什么时候草吃不完」— its image is the handwritten derivation photo 466E4C7B…jpg (the one the brief names) → replaced with cow-grass-forever.png （牧场+公式 t = 75 ÷ (z − 15)+z ≤ 15 吃不完）.
+- 「类是模具，对象是产品」— inspection found its v7 seed actually stored file 9A1FD9DF…jpg, which on disk is a handwritten tree-planting derivation photo (the file list order in the original send did not match the images' content order; the finished Cat poster is file 9A95A76C…jpg). The card therefore displays a handwritten photo → replaced with class-mold.png (class Cat 模具 → cat1 汤姆黑 / cat2 泡面白）, drawn from the card's own title and 要点.
+**Swap guard**: a replacement only happens while the card still carries its untouched v7 seed blob key (`cards/seed-v7-cowGrassForever` / `cards/seed-v7-classMold`); only `image_blob_key` is updated (new blobs at `cards/seed-v8-cowGrassForever` / `cards/seed-v8-classMold`). Cards the user edited, re-imaged, renamed, or deleted are never touched; titles, categories, and 要点 of all existing cards are unchanged.
+
+### v9 batch: 15 new cards added 2026-11-25 (four follow-up asks in one seed run)
+**Used by**: seedLibraryV9 action — same idempotent pattern as v3–v8 (meta key `seeded_v9`, title de-dupe), images via privileged `readSeedImagesV9`, blobs at `cards/seed-v9-<slot>`. Client fires it once on load like the earlier seeds; also declared as this edit's post-submit action so the production library gains the cards without waiting for an open.
+**New cards (15)**, titles/要点 verbatim from the four briefs, all diagrams redrawn programmatically (PIL, same pastel-panel style as v3–v8), stored in server/assets/: pythagoras.png （勾股定理：a² + b² = c²/几何，3-4-5 直角三角形三边各带正方形、面积标 16/9/25）, pythagoras-converse.png （勾股逆定理：判断是不是直角三角形/几何，判断流程图+勾股数小表 3,4,5 / 6,8,10 / 5,12,13 / 8,15,17）, ladder-wall.png （勾股定理应用：梯子靠墙/应用题，墙+地面+梯子成直角三角形、5 米/3 米/高 = 4 米）, ineq-symbols.png （认识不等号：五种符号/方程，五符号对照表）, ineq-keywords.png （列不等式：关键词定方向/应用题，关键词→符号对照表+三例）, ineq-integer.png （不等式的整数解：正整数解和最大整数解/方程，两条数轴标整数点、端点空心/实心）, ineq-system-example.png （不等式组例题：数轴上找公共部分/方程，两条数轴叠合成 2 < x ≤ 4）, coord-system.png （平面直角坐标系：横轴、纵轴和原点/几何，坐标系+P(3, 2) 虚线定位+四象限标名）, coord-quadrants.png （四个象限的符号规律/几何，四象限色块标 (+, +) 等符号）, coord-distance.png （点到两轴的距离：取绝对值/几何，P(−3, 4) 向两轴作垂线）, coord-symmetry.png （对称点坐标：谁对称谁变号/几何，(2, 3) 与三个对称点+虚线连线）, sqrt-basic.png （平方根与算术平方根/数与计算，25 的 ±5 与 √25 = 5 对照）, sqrt-table.png （开平方：先背平方数表/数与计算，1²–15² 方格表，7² 与 12² 标橙）, sqrt-simplify.png （二次根式化简与加减乘除/数与计算，化简/加减/乘法/分母有理化四格示例）, cbrt-compare.png （立方根：负数也有份/数与计算，平方根与立方根对照表）. Each visually inspected before wiring in (first pass: 坐标系「3」与轴名重叠、距离图蓝字压红字、化简图加减式与注释重叠、✗ 字形缺失，均已修好重看).
+**Existing cards untouched**: no image swaps in this batch; totals after seeding: 64 cards （几何 16、方程 16、数与计算 12、应用题 8、编程 6、乘法公式 4、因式分解 2).
+
+### v10 batch: 4 new vector cards added 2026-11-25
+**Used by**: seedLibraryV10 action — same idempotent pattern as v3–v9 (meta key `seeded_v10`, title de-dupe), images via privileged `readSeedImagesV10`, blobs at `cards/seed-v10-<slot>`. Client fires it once on load like the earlier seeds; also declared as this edit's post-submit action so the production library gains the cards without waiting for an open.
+**New cards (4)**, titles/要点 verbatim from the brief, all filed under 几何， all diagrams redrawn programmatically (PIL, same pastel-panel style as v3–v9), stored in server/assets/: vector-basic.png （什么是向量：有大小又有方向，带箭头线段标起点 A/终点 B、平行测量线标模 |a→|、灰虚线相等向量）, vector-addsub.png （向量的加法和减法：首尾相连，左三角形法则首尾相连、右平行四边形法则同起点对角线，两幅并排）, vector-coord.png （向量的坐标、模和数乘，坐标系里向量 (3, 4)、橙虚线投影标 3 与 4、|a→| = 5）, vector-dot.png （向量的数量积：算夹角、判垂直，同起点两向量 a→/b→ 与橙色夹角弧标 θ；底部公式的下标改用普通数字 x1x2 + y1y2，因 CJK 字体缺下标字形）. Each visually inspected before wiring in (first passes: 模长标注与虚线交叉、底部文字溢出面板、标题压 y 轴、下标变方框，均已修好重看).
+**Existing cards untouched**: no image swaps in this batch; totals after seeding: 68 cards （几何 20、方程 16、数与计算 12、应用题 8、编程 6、乘法公式 4、因式分解 2).
+
+## Long-term data behavior
+- **Refresh policy**: none — all data is user-entered; no external source, no cron.
+- **Growth**: user adds cards/categories over time; list action returns all cards (newest first) and filtering/search happens client-side for instant response.
+- **Ordering**: categories by sort_order then id; cards newest first (created_at desc, id desc).
+- **Time semantics**: created_at/updated_at are creation instants rendered viewer-local; not user-facing beyond ordering.
+- **Seeding**: seed action is idempotent — seeds the 6 preset categories only when categories table is empty, and the 4 starter cards only when cards table is empty; never overwrites user edits.
+
+## Rejected approaches
+- **Tried**: storing seed images as build-time client assets
+  **Why rejected**: cards must live in the DB like user-added cards (editable, deletable, same rendering path); blobs + image_blob_key keeps one uniform model.
+- **Tried**: external web fonts for a rounded kid look
+  **Why rejected**: this user's network has hung pages on Google Fonts @import before (地理侦探 incident); system font stack only, zero external requests.
