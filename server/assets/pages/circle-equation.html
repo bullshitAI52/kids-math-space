@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>理解 x² + y² = 9 是一个圆形 (最终版)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f4f7f9;
+            color: #333;
+        }
+        .explanation {
+            max-width: 550px; text-align: center; margin-bottom: 20px; padding: 15px;
+            background-color: #eaf2f8; border-radius: 8px; border: 1px solid #c2d9e8;
+        }
+        #animation-container {
+            position: relative; width: 400px; height: 400px;
+            border: 1px solid #ccc; background-color: #fff;
+            border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        svg { width: 100%; height: 100%; overflow: visible; }
+        .axis-line { stroke: #aaa; stroke-width: 1; }
+        .grid-line { stroke: #e0e0e0; stroke-width: 0.5; }
+        .axis-label { font-size: 10px; fill: #555; }
+        #circle-path { fill: none; stroke: #ccc; stroke-width: 2; stroke-dasharray: 5,5; }
+        #radius-line { stroke: #28a745; stroke-width: 2.5; }
+        #point { fill: #007bff; stroke: white; stroke-width: 2; }
+        .coord-line { stroke-width: 1.5; stroke-dasharray: 4,4; }
+        #x-coord-line { stroke: #fd7e14; } /* Orange */
+        #y-coord-line { stroke: #6f42c1; } /* Purple */
+        .coord-label { font-size: 14px; font-weight: bold; }
+        #x-coord-label { fill: #fd7e14; }
+        #y-coord-label { fill: #6f42c1; }
+        #equation-display {
+            position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%);
+            font-size: 1.25em; font-weight: bold; font-family: 'Courier New', monospace;
+            background-color: rgba(255, 255, 255, 0.95); padding: 8px 12px;
+            border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            white-space: nowrap;
+        }
+        #toggle-button {
+            margin-top: 20px; padding: 10px 20px; font-size: 1.2em; cursor: pointer;
+            border-radius: 8px; border: none; background-color: #007bff; color: white;
+            transition: background-color 0.3s;
+        }
+        #toggle-button:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+
+    <h1>理解 x² + y² = 9 是一个圆形</h1>
+
+    <div class="explanation">
+        <p>我们画出了橙色的 <strong>x 坐标线</strong>和紫色的 <strong>y 坐标线</strong>，让你能清楚地看到蓝点当前的坐标值。</p>
+        <p>仔细观察下方的计算过程！无论蓝点在哪里，它的 <strong>(x)² + (y)²</strong> 的结果总是等于 <strong>9</strong>。</p>
+    </div>
+
+    <div id="animation-container">
+        <svg>
+            <g id="grid-group"></g>
+            <line class="axis-line" x1="0" y1="200" x2="400" y2="200"/>
+            <line class="axis-line" x1="200" y1="0" x2="200" y2="400"/>
+            <g id="label-group" class="axis-label"></g>
+
+            <circle id="circle-path" cx="200" cy="200" r="150"/>
+            <line id="y-coord-line" class="coord-line" />
+            <line id="x-coord-line" class="coord-line" />
+            <line id="radius-line" x1="200" y1="200" x2="350" y2="200"/>
+            <circle id="point" cx="350" cy="200" r="6"/>
+            <text id="x-coord-label" class="coord-label" text-anchor="middle"></text>
+            <text id="y-coord-label" class="coord-label" dominant-baseline="middle"></text>
+        </svg>
+        <div id="equation-display"></div>
+    </div>
+
+    <button id="toggle-button">暂停</button>
+
+    <script>
+        // --- DOM Elements ---
+        const point = document.getElementById('point');
+        const radiusLine = document.getElementById('radius-line');
+        const equationDisplay = document.getElementById('equation-display');
+        const toggleButton = document.getElementById('toggle-button');
+        const gridGroup = document.getElementById('grid-group');
+        const labelGroup = document.getElementById('label-group');
+        const xCoordLine = document.getElementById('x-coord-line');
+        const yCoordLine = document.getElementById('y-coord-line');
+        const xCoordLabel = document.getElementById('x-coord-label');
+        const yCoordLabel = document.getElementById('y-coord-label');
+
+        // --- Constants ---
+        const centerX = 200, centerY = 200, radius = 150, scale = 50;
+        const mathRadius = radius / scale;
+
+        // --- State ---
+        let angle = 0, isPlaying = true, animationFrameId = null;
+
+        // --- Setup Function ---
+        function setupGrid() {
+            for (let i = -mathRadius; i <= mathRadius; i++) {
+                if (i === 0) continue;
+                const pos = centerX + i * scale;
+                // Grid lines
+                const xGrid = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                xGrid.setAttribute('x1', pos); xGrid.setAttribute('y1', 0);
+                xGrid.setAttribute('x2', pos); xGrid.setAttribute('y2', 400);
+                xGrid.setAttribute('class', 'grid-line');
+                gridGroup.appendChild(xGrid);
+
+                const yGrid = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                yGrid.setAttribute('x1', 0);   yGrid.setAttribute('y1', pos);
+                yGrid.setAttribute('x2', 400); yGrid.setAttribute('y2', pos);
+                yGrid.setAttribute('class', 'grid-line');
+                gridGroup.appendChild(yGrid);
+
+                // Labels
+                const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                xLabel.setAttribute('x', pos); xLabel.setAttribute('y', centerY + 15);
+                xLabel.setAttribute('text-anchor', 'middle');
+                xLabel.textContent = i;
+                labelGroup.appendChild(xLabel);
+
+                const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                yLabel.setAttribute('x', centerX + 10); yLabel.setAttribute('y', pos);
+                yLabel.setAttribute('dominant-baseline', 'central');
+                yLabel.textContent = -i; // Y-axis is inverted in SVG
+                labelGroup.appendChild(yLabel);
+            }
+        }
+
+        // --- Animation Function ---
+        function updateAnimation() {
+            // Point position
+            const pX = centerX + radius * Math.cos(angle);
+            const pY = centerY + radius * Math.sin(angle);
+            point.setAttribute('cx', pX);
+            point.setAttribute('cy', pY);
+            radiusLine.setAttribute('x2', pX);
+            radiusLine.setAttribute('y2', pY);
+            
+            // Coordinate lines
+            xCoordLine.setAttribute('x1', pX); xCoordLine.setAttribute('y1', pY);
+            xCoordLine.setAttribute('x2', pX); xCoordLine.setAttribute('y2', centerY);
+            yCoordLine.setAttribute('x1', pX); yCoordLine.setAttribute('y1', pY);
+            yCoordLine.setAttribute('x2', centerX); yCoordLine.setAttribute('y2', pY);
+
+            // Math values
+            const mathX = (pX - centerX) / scale;
+            const mathY = -(pY - centerY) / scale; // Invert Y for correct math representation
+            const xStr = mathX.toFixed(1);
+            const yStr = mathY.toFixed(1);
+
+            // Coordinate labels
+            xCoordLabel.setAttribute('x', pX);
+            xCoordLabel.setAttribute('y', centerY + 20);
+            xCoordLabel.textContent = xStr;
+            yCoordLabel.setAttribute('x', centerX - 30);
+            yCoordLabel.setAttribute('y', pY);
+            yCoordLabel.textContent = yStr;
+
+            // Equation display
+            const sumSquared = Math.pow(mathX, 2) + Math.pow(mathY, 2);
+            equationDisplay.innerHTML = `(${xStr})² + (${yStr})² ≈ <strong>${sumSquared.toFixed(1)}</strong>`;
+
+            angle += 0.01;
+        }
+
+        // --- Control ---
+        function animationLoop() {
+            updateAnimation();
+            animationFrameId = requestAnimationFrame(animationLoop);
+        }
+
+        toggleButton.addEventListener('click', () => {
+            if (isPlaying) {
+                cancelAnimationFrame(animationFrameId);
+                toggleButton.textContent = '播放';
+            } else {
+                animationLoop();
+                toggleButton.textContent = '暂停';
+            }
+            isPlaying = !isPlaying;
+        });
+
+        // --- Start ---
+        setupGrid();
+        animationLoop();
+    </script>
+
+</body>
+</html>

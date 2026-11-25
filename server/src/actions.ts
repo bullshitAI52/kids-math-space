@@ -27,9 +27,34 @@ const cardShape = z.object({
   points: z.string(),
   category_id: z.number(),
   image_url: z.string().nullable(),
+  link_url: z.string().nullable(),
+  content_kind: z.enum(["page", "comic"]).nullable(),
+  page_count: z.number(),
   practice: z.array(practiceItemShape),
   created_at: z.string(),
 });
+
+// Parse the stored comic page-list JSON; anything malformed reads as
+// no pages rather than breaking the whole library.
+function parsePages(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((p): p is string => typeof p === "string");
+  } catch {
+    return [];
+  }
+}
+
+function contentKindOf(row: {
+  contentHtml: string | null;
+  pages: string | null;
+}): "page" | "comic" | null {
+  if (row.pages) return "comic";
+  if (row.contentHtml) return "page";
+  return null;
+}
 
 // Parse the stored practice JSON; anything malformed reads as no
 // practice rather than breaking the whole library.
@@ -779,6 +804,162 @@ const SEED_CARDS_V11: ReadonlyArray<{
   },
 ];
 
+// The 9 link cards added on 2026-11-25 (v12 batch): external learning
+// pages / a repo the user keeps on their own site and GitHub, filed
+// into the wall as link cards. Titles and URLs are the user's own,
+// verbatim; each 要点 is one sentence saying what the page is. Link
+// cards carry no image and no practice.
+const SEED_CARDS_V12: ReadonlyArray<{
+  title: string;
+  categoryName: string;
+  points: string;
+  linkUrl: string;
+}> = [
+  {
+    title: "面向对象进阶：魔法学院之旅",
+    categoryName: "编程",
+    points: "跟着魔法学院的故事情节，继续深入学面向对象编程的进阶内容。",
+    linkUrl: "http://www.shuanghai.shop/wxh/oop_advanced.html",
+  },
+  {
+    title: "面向对象编程·小学四年级教程",
+    categoryName: "编程",
+    points: "专门写给小学四年级的面向对象编程入门教程，从零开始认识类和对象。",
+    linkUrl: "http://www.shuanghai.shop/xgy/oop_tutorial.html",
+  },
+  {
+    title: "基本不等式解法精讲",
+    categoryName: "数与计算",
+    points: "基本不等式的解法精讲：怎么用、什么时候用，一步一步讲清楚。",
+    linkUrl: "http://www.shuanghai.shop/xby/",
+  },
+  {
+    title: "基本不等式终极指南",
+    categoryName: "数与计算",
+    points: "基本不等式的终极指南，把公式、变形和常见题型一次整理齐。",
+    linkUrl: "http://www.shuanghai.shop/ztx/",
+  },
+  {
+    title: "面积公式推导",
+    categoryName: "几何",
+    points: "面积公式不是背出来的——看看每个公式是怎么一步步推出来的。",
+    linkUrl: "http://www.shuanghai.shop/zkx/",
+  },
+  {
+    title: "玩转因式分解",
+    categoryName: "因式分解",
+    points: "因式分解的各种玩法集中讲，点开跟着练。",
+    linkUrl: "http://www.shuanghai.shop/zwm/",
+  },
+  {
+    title: "理解 x²+y²=9 是圆形",
+    categoryName: "几何",
+    points: "为什么 x² + y² = 9 画出来是一个圆？点开看它怎么从方程变成图形。",
+    linkUrl: "http://www.shuanghai.shop/zxm/",
+  },
+  {
+    title: "正负数大冒险",
+    categoryName: "数与计算",
+    points: "闯关小游戏，练正负数运算。",
+    linkUrl: "http://www.shuanghai.shop/正负数大冒险.html",
+  },
+  {
+    title: "漫画数学",
+    categoryName: "数学漫画",
+    points: "用漫画讲数学的 GitHub 仓库，点开看漫画版的数学故事。",
+    linkUrl: "https://github.com/bullshitAI52/mathmanhua123",
+  },
+];
+
+// The v13 batch (2026-11-25, replacing v12): the same 9 items, but
+// integrated INTO the space instead of linking out, per the user's
+// follow-up. The 8 tutorials' full HTML was fetched from the user's
+// own server (public IP — the domain does not resolve to it right
+// now; same content) and is stored on each card; the comic card
+// stores only the page-filename manifest of the mathmanhua123 repo
+// (589 PNGs, fetched once via the GitHub API at build time) and the
+// reader loads pages from the repo's raw URLs. Titles/categories are
+// the user's own; linkUrl is kept only so the seed can find and
+// replace any v12 link card with the same title.
+const SEED_CARDS_V13: ReadonlyArray<{
+  slot: string | null;
+  title: string;
+  categoryName: string;
+  points: string;
+  linkUrl: string;
+}> = [
+  {
+    slot: "oopAdvanced",
+    title: "面向对象进阶：魔法学院之旅",
+    categoryName: "编程",
+    points: "跟着魔法学院的故事情节，继续深入学面向对象编程的进阶内容。",
+    linkUrl: "http://www.shuanghai.shop/wxh/oop_advanced.html",
+  },
+  {
+    slot: "oopTutorial",
+    title: "面向对象编程·小学四年级教程",
+    categoryName: "编程",
+    points: "专门写给小学四年级的面向对象编程入门教程，从零开始认识类和对象。",
+    linkUrl: "http://www.shuanghai.shop/xgy/oop_tutorial.html",
+  },
+  {
+    slot: "ineqSolutions",
+    title: "基本不等式解法精讲",
+    categoryName: "数与计算",
+    points: "基本不等式的解法精讲：怎么用、什么时候用，一步一步讲清楚。",
+    linkUrl: "http://www.shuanghai.shop/xby/",
+  },
+  {
+    slot: "ineqGuide",
+    title: "基本不等式终极指南",
+    categoryName: "数与计算",
+    points: "基本不等式的终极指南，把公式、变形和常见题型一次整理齐。",
+    linkUrl: "http://www.shuanghai.shop/ztx/",
+  },
+  {
+    slot: "areaFormulas",
+    title: "面积公式推导",
+    categoryName: "几何",
+    points: "面积公式不是背出来的——看看每个公式是怎么一步步推出来的。",
+    linkUrl: "http://www.shuanghai.shop/zkx/",
+  },
+  {
+    slot: "factorization",
+    title: "玩转因式分解",
+    categoryName: "因式分解",
+    points: "因式分解的各种玩法集中讲，点开跟着练。",
+    linkUrl: "http://www.shuanghai.shop/zwm/",
+  },
+  {
+    slot: "circleEquation",
+    title: "理解 x²+y²=9 是圆形",
+    categoryName: "几何",
+    points: "为什么 x² + y² = 9 画出来是一个圆？点开看它怎么从方程变成图形。",
+    linkUrl: "http://www.shuanghai.shop/zxm/",
+  },
+  {
+    slot: "signedNumbers",
+    title: "正负数大冒险",
+    categoryName: "数与计算",
+    points: "闯关小游戏，练正负数运算。",
+    linkUrl: "http://www.shuanghai.shop/正负数大冒险.html",
+  },
+  {
+    slot: null,
+    title: "漫画数学",
+    categoryName: "数学漫画",
+    points:
+      "《漫画数学王》全三册扫描图，一共 589 页，在空间里直接翻页看。",
+    linkUrl: "https://github.com/bullshitAI52/mathmanhua123",
+  },
+];
+
+const cardContentResponse = z.object({
+  kind: z.enum(["page", "comic", "none"]),
+  html: z.string().nullable(),
+  pages: z.array(z.string()),
+});
+
 // ---------- practice seeds (2026-11-25, batches A–D) ----------
 // Three questions per card: 基础题 (direct application), 变式题
 // (new numbers / new phrasing), 应用或易错题. Every answer was
@@ -1426,6 +1607,9 @@ async function buildLibrary(ctx: Ctx): Promise<z.infer<typeof libraryResponse>> 
       image_url: row.imageBlobKey
         ? await ctx.blobs.getUrl(row.imageBlobKey)
         : null,
+      link_url: row.linkUrl,
+      content_kind: contentKindOf(row),
+      page_count: parsePages(row.pages).length,
       practice: parsePractice(row.practice),
       created_at: row.createdAt.toISOString(),
     });
@@ -1479,6 +1663,9 @@ async function cardOut(
     image_url: row.imageBlobKey
       ? await ctx.blobs.getUrl(row.imageBlobKey)
       : null,
+    link_url: row.linkUrl,
+    content_kind: contentKindOf(row),
+    page_count: parsePages(row.pages).length,
     practice: parsePractice(row.practice),
     created_at: row.createdAt.toISOString(),
   };
@@ -2247,6 +2434,189 @@ export const Actions = {
     },
   }),
 
+  seedLibraryV12: defineAction({
+    description:
+      "放入 2026-11-25 用户给的 9 张链接卡（8 个自有站学习网页 + 1 个 GitHub 漫画数学仓库，新分类「数学漫画」）；只在从未播种过 v12 时执行，同名卡已存在则跳过，不会覆盖用户后来的修改。",
+    request: z.object({}),
+    response: seedResponse,
+    handler: async (ctx): Promise<z.infer<typeof seedResponse>> => {
+      const db = ctx.db<typeof schema>();
+      const seededRows = await db
+        .select()
+        .from(schema.meta)
+        .where(eq(schema.meta.key, "seeded_v12"))
+        .limit(1);
+      if (seededRows.length > 0) {
+        return { seeded: false, seeded_cards: 0 };
+      }
+
+      for (const preset of PRESET_CATEGORIES) {
+        await db
+          .insert(schema.categories)
+          .values(preset)
+          .onConflictDoNothing();
+      }
+      // The new 数学漫画 category the user asked for (skip if it
+      // somehow already exists — e.g. the user added it by hand).
+      const beforeCats = await db.select().from(schema.categories);
+      if (!beforeCats.some((c) => c.name === "数学漫画")) {
+        const maxSort = beforeCats.reduce(
+          (m, c) => Math.max(m, c.sortOrder),
+          -1,
+        );
+        await db
+          .insert(schema.categories)
+          .values({ name: "数学漫画", color: "pink", sortOrder: maxSort + 1 })
+          .onConflictDoNothing();
+      }
+      const catRows = await db.select().from(schema.categories);
+      const catByName = new Map(catRows.map((c) => [c.name, c]));
+
+      const existingTitles = new Set(
+        (await db.select({ title: schema.cards.title }).from(schema.cards)).map(
+          (r) => r.title,
+        ),
+      );
+
+      let seededCards = 0;
+      for (const def of SEED_CARDS_V12) {
+        const cat = catByName.get(def.categoryName);
+        if (!cat || existingTitles.has(def.title)) continue;
+        await db.insert(schema.cards).values({
+          title: def.title,
+          points: def.points,
+          categoryId: cat.id,
+          imageBlobKey: null,
+          linkUrl: def.linkUrl,
+        });
+        seededCards += 1;
+      }
+
+      await db
+        .insert(schema.meta)
+        .values({ key: "seeded_v12", value: "1" })
+        .onConflictDoNothing();
+      ctx.invalidateQueries();
+      return { seeded: true, seeded_cards: seededCards };
+    },
+  }),
+
+  seedLibraryV13: defineAction({
+    description:
+      "放入 9 张专题卡：8 个教程的完整 HTML 存进空间内部（点开在空间里直接看/玩），漫画数学存 589 页页图清单（在空间里翻页读，图从 GitHub 仓库直读）；若同名 v12 外链卡已存在则替换掉，只在从未播种过 v13 时执行，不会覆盖用户后来的修改。",
+    request: z.object({}),
+    response: seedResponse,
+    privileged: [privileged.readSeedPagesV13],
+    handler: async (ctx): Promise<z.infer<typeof seedResponse>> => {
+      const db = ctx.db<typeof schema>();
+      const seededRows = await db
+        .select()
+        .from(schema.meta)
+        .where(eq(schema.meta.key, "seeded_v13"))
+        .limit(1);
+      if (seededRows.length > 0) {
+        return { seeded: false, seeded_cards: 0 };
+      }
+
+      for (const preset of PRESET_CATEGORIES) {
+        await db
+          .insert(schema.categories)
+          .values(preset)
+          .onConflictDoNothing();
+      }
+      const beforeCats = await db.select().from(schema.categories);
+      if (!beforeCats.some((c) => c.name === "数学漫画")) {
+        const maxSort = beforeCats.reduce(
+          (m, c) => Math.max(m, c.sortOrder),
+          -1,
+        );
+        await db
+          .insert(schema.categories)
+          .values({ name: "数学漫画", color: "pink", sortOrder: maxSort + 1 })
+          .onConflictDoNothing();
+      }
+      const catRows = await db.select().from(schema.categories);
+      const catByName = new Map(catRows.map((c) => [c.name, c]));
+
+      const { pages, comicPages } = await ctx.executePrivileged(
+        privileged.readSeedPagesV13,
+        {},
+      );
+      const htmlBySlot = new Map(pages.map((p) => [p.slot, p.html]));
+
+      // Replace, never duplicate: an earlier v12 link card with one of
+      // these titles (link set, no stored content) is removed so the
+      // wall never shows both versions.
+      const existing = await db.select().from(schema.cards);
+      const existingByTitle = new Map(existing.map((c) => [c.title, c]));
+      for (const def of SEED_CARDS_V13) {
+        const old = existingByTitle.get(def.title);
+        if (old && old.linkUrl && !old.contentHtml && !old.pages) {
+          await db.delete(schema.cards).where(eq(schema.cards.id, old.id));
+          existingByTitle.delete(def.title);
+        }
+      }
+
+      let seededCards = 0;
+      for (const def of SEED_CARDS_V13) {
+        const cat = catByName.get(def.categoryName);
+        if (!cat || existingByTitle.has(def.title)) continue;
+        if (def.slot === null) {
+          if (comicPages.length === 0) continue;
+          await db.insert(schema.cards).values({
+            title: def.title,
+            points: def.points,
+            categoryId: cat.id,
+            imageBlobKey: null,
+            pages: JSON.stringify(comicPages),
+          });
+        } else {
+          const html = htmlBySlot.get(def.slot);
+          if (!html) continue;
+          await db.insert(schema.cards).values({
+            title: def.title,
+            points: def.points,
+            categoryId: cat.id,
+            imageBlobKey: null,
+            contentHtml: html,
+          });
+        }
+        seededCards += 1;
+      }
+
+      await db
+        .insert(schema.meta)
+        .values({ key: "seeded_v13", value: "1" })
+        .onConflictDoNothing();
+      ctx.invalidateQueries();
+      return { seeded: true, seeded_cards: seededCards };
+    },
+  }),
+
+  getCardContent: defineAction({
+    description:
+      "读取一张专题卡的内部内容：教程卡返回存好的完整 HTML（前端用沙箱 iframe 打开），漫画卡返回页图文件名清单（前端按顺序从 GitHub 仓库直读翻页）；普通卡返回 none。",
+    request: z.object({ id: z.number().int().positive() }),
+    response: cardContentResponse,
+    handler: async (ctx, args): Promise<z.infer<typeof cardContentResponse>> => {
+      const db = ctx.db<typeof schema>();
+      const rows = await db
+        .select()
+        .from(schema.cards)
+        .where(eq(schema.cards.id, args.id))
+        .limit(1);
+      const row = rows[0];
+      if (!row) throw new Error("这张卡片已经不存在了。");
+      if (row.pages) {
+        return { kind: "comic" as const, html: null, pages: parsePages(row.pages) };
+      }
+      if (row.contentHtml) {
+        return { kind: "page" as const, html: row.contentHtml, pages: [] };
+      }
+      return { kind: "none" as const, html: null, pages: [] };
+    },
+  }),
+
   seedPractice: defineAction({
     description:
       "给五批共 72 张卡补上每张 3 道练习题（批次 A 乘法公式/因式分解/方程、B 数与计算/应用题、C 几何、D 编程、E 整式运算）；每批只播一次（meta 标记），且只给练习还为空的卡填写，用户自己写过或改过的练习不会被覆盖，其他字段一律不动。",
@@ -2376,6 +2746,15 @@ export const Actions = {
       categoryId: z.number().int().positive(),
       image: imageInput.nullable().default(null),
       practiceText: z.string().trim().max(6000).default(""),
+      linkUrl: z
+        .string()
+        .trim()
+        .max(1000)
+        .refine(
+          (v) => v === "" || /^https?:\/\//.test(v),
+          "链接要以 http:// 或 https:// 开头",
+        )
+        .default(""),
     }),
     response: cardResponse,
     handler: async (ctx, args): Promise<z.infer<typeof cardResponse>> => {
@@ -2389,6 +2768,7 @@ export const Actions = {
           points: args.points,
           categoryId: args.categoryId,
           imageBlobKey: blobKey,
+          linkUrl: args.linkUrl === "" ? null : args.linkUrl,
           practice: JSON.stringify(parsePracticeText(args.practiceText)),
         })
         .returning();
@@ -2410,6 +2790,15 @@ export const Actions = {
       image: imageInput.nullable().default(null),
       removeImage: z.boolean().default(false),
       practiceText: z.string().trim().max(6000).default(""),
+      linkUrl: z
+        .string()
+        .trim()
+        .max(1000)
+        .refine(
+          (v) => v === "" || /^https?:\/\//.test(v),
+          "链接要以 http:// 或 https:// 开头",
+        )
+        .default(""),
     }),
     response: cardResponse,
     handler: async (ctx, args): Promise<z.infer<typeof cardResponse>> => {
@@ -2438,6 +2827,7 @@ export const Actions = {
           points: args.points,
           categoryId: args.categoryId,
           imageBlobKey: blobKey,
+          linkUrl: args.linkUrl === "" ? null : args.linkUrl,
           practice: JSON.stringify(parsePracticeText(args.practiceText)),
           updatedAt: new Date(),
         })

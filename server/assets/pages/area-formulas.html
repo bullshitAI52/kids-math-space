@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>面积公式推导：从现实到数学的奇妙旅程</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', 'Arial', 'Microsoft YaHei', sans-serif;
+            line-height: 1.9;
+            color: #333;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 15px;
+            padding: 25px 40px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+        }
+        h1, h2 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
+        h2 {
+            font-size: 1.8em;
+            color: #3498db;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 15px;
+            margin-top: 40px;
+        }
+        p, li {
+            font-size: 1.1em;
+        }
+        .step {
+            margin-top: 30px;
+            padding: 20px;
+            border-left: 5px solid #3498db;
+            background-color: #ecf0f1;
+            border-radius: 0 8px 8px 0;
+        }
+        .step-title {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #2980b9;
+        }
+        .highlight {
+            background-color: #fff3cd;
+            padding: 3px 8px;
+            border-radius: 5px;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+        }
+        .conclusion {
+            margin-top: 40px;
+            padding: 25px;
+            background-color: #e8f5e9;
+            border: 2px solid #4caf50;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .conclusion p {
+            font-size: 1.2em;
+            color: #1b5e20;
+            margin: 0;
+        }
+        .emoji {
+            font-size: 1.5em;
+            margin-right: 10px;
+        }
+        hr {
+            border: 0;
+            height: 1px;
+            background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0));
+            margin: 40px 0;
+        }
+        /* 互动部分的样式 */
+        .interactive-section {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 10px;
+        }
+        .slider-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        input[type="range"] {
+            width: 80%;
+            cursor: pointer;
+        }
+        #chart-info {
+            text-align: center;
+            font-size: 1.2em;
+            color: #d9534f;
+            font-weight: bold;
+            margin-top: 15px;
+            height: 30px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>面积公式推导：从现实到数学的奇妙旅程</h1>
+    <p style="text-align:center; color: #7f8c8d; font-size:1.2em;">一步步带你把现实问题“翻译”成优美的数学语言</p>
+
+    <hr>
+
+    <h2>第一幕：我们的现实世界问题 🌍</h2>
+    <p>我们的任务很简单：有一根 <strong>20米</strong> 长的绳子，我们要用它围成一个长方形。我们关心的是这个长方形的**面积**。</p>
+    <div class="step">
+        <p class="step-title">核心信息提取</p>
+        <ul>
+            <li><strong>对象:</strong> 一个长方形</li>
+            <li><strong>已知条件:</strong> 周长是20米</li>
+            <li><strong>目标:</strong> 研究它的面积</li>
+        </ul>
+        <p>从周长是20米，我们可以得到一个至关重要的关系：<br>
+        <span class="highlight">(长 + 宽) × 2 = 20</span> 米，简化一下就是 <span class="highlight">长 + 宽 = 10</span> 米。
+        </p>
+    </div>
+
+    <hr>
+
+    <h2>第二幕：“翻译”成数学语言 📝</h2>
+    <p>为了让数学家（或者我们的计算机）能理解这个问题，我们需要把“长”、“宽”、“面积”这些日常语言，翻译成数学家们通用的符号语言。</p>
+    <div class="step">
+        <p class="step-title">第一步：引入未知数 (给事物起一个数学名字)</p>
+        <p><strong>规定：</strong> 设长方形的一条边长为 <span class="highlight">\(x\)</span> 米。</p>
+    </div>
+    <div class="step">
+        <p class="step-title">第二步：用未知数表示其他量</p>
+        <p>既然 <strong>长 + \(x\) = 10</strong>, 那么，另一条边长就是 <span class="highlight">\((10 - x)\)</span> 米。</p>
+    </div>
+    <div class="step">
+        <p class="step-title">第三步：建立关系式 (写出面积的“说明书”)</p>
+        <p>我们知道面积最根本的公式是：<strong style="color: #c0392b;">面积 = 长 × 宽</strong>。现在，把数学符号代入进去：</p>
+        <p><span class="highlight">面积 S = (10 - x) × x</span></p>
+    </div>
+
+    <hr>
+
+    <h2>第三幕：美化与标准化 ✨</h2>
+    <p>数学家们喜欢把公式整理成标准、漂亮的样子。我们把 <span class="highlight">S = (10 - x) × x</span> 整理一下。</p>
+    <div class="step">
+        <p class="step-title">展开与排序</p>
+        <p>利用乘法分配律，我们把括号打开： <span class="highlight">\(S = 10x - x^2\)</span></p>
+        <p>通常，我们习惯把带平方的项写在最前面，所以把它换个位置：</p>
+        <p style="text-align:center; font-size: 1.5em; font-weight: bold;"><span class="highlight">\(S = -x^2 + 10x\)</span></p>
+    </div>
+    <div class="conclusion">
+        <p><span class="emoji">🎉</span><strong>公式推导完成！</strong>我们成功地将一个现实问题，“翻译”和“提炼”，得到了这个强大而优美的二次函数公式。</p>
+    </div>
+
+    <hr>
+
+    <h2>第四幕：代数求解，锁定巅峰 🎯</h2>
+    <p>现在我们有了这个强大的公式，就可以不用画图或猜测，直接用代数方法精确地计算出最大值。</p>
+    <div class="step" style="border-color:#e67e22; background-color: #fef5e7;">
+        <p class="step-title" style="color:#d35400;">运用顶点坐标公式</p>
+        <p>对于任何二次函数 <span class="highlight">\(y = ax^2 + bx + c\)</span>，它的图像（抛物线）的顶点位置（也就是最高点或最低点）的横坐标可以用一个固定公式算出：</p>
+        <p style="text-align:center; font-size: 1.5em; font-weight: bold;">\(x = -\frac{b}{2a}\)</p>
+        <p>在我们的面积公式 <span class="highlight">\(S = -x^2 + 10x\)</span> 中：</p>
+        <ul>
+            <li><span class="highlight">\(a = -1\)</span> (因为是 \(-x^2\))</li>
+            <li><span class="highlight">\(b = 10\)</span> (因为是 \(+10x\))</li>
+        </ul>
+        <p>现在，把 \(a\) 和 \(b\) 的值代入顶点公式：</p>
+        <p style="text-align:center; font-size: 1.3em;">\(x = -\frac{10}{2 \times (-1)} = -\frac{10}{-2} = 5\)</p>
+        <p>这个计算结果告诉我们：当边长 <span class="highlight">\(x\)</span> 精确地等于 <strong>5米</strong> 时，面积 <span class="highlight">\(S\)</span> 会取得最大值。</p>
+        <p>最大面积是多少呢？把 \(x=5\) 代回面积公式：<br>
+        \(S_{max} = -(5)^2 + 10 \times 5 = -25 + 50 = 25\) 平方米。</p>
+    </div>
+
+    <hr>
+
+    <h2>第五幕：眼见为实，函数图形的智慧 📊</h2>
+    <p>代数计算告诉我们答案是 <span class="highlight">\(x=5\)</span>。现在，让我们画出图形，亲眼验证一下这个结论是否正确！</p>
+    <div class="interactive-section">
+        <p>下图就是我们公式的“功能地图”。<strong>横轴 (X轴) 代表你选择的边长</strong>，<strong>纵轴 (S轴) 代表算出来的面积</strong>。线上的每一个点，都是一个“边长-面积”方案。</p>
+        <canvas id="areaChart"></canvas>
+        <div class="slider-container">
+            <p>拖动下面的滑块，看看当你改变边长 <span class="highlight">\(x\)</span> 时，图上的红点（代表你的方案）是如何移动的：</p>
+            <input type="range" id="x-slider" min="0" max="10" value="2" step="0.1">
+            <div id="chart-info"></div>
+        </div>
+        <div class="step" style="border-color: #4caf50;">
+            <p class="step-title" style="color: #1b5e20;">观察与发现</p>
+            <p>通过拖动滑块，我们可以清晰地看到：当红点移动到图的<strong>最高处（顶点）</strong>时，它对应的纵坐标（面积S）的值是最大的。这个最高点所处的位置，恰好是横坐标 <span class="highlight">\(x = 5\)</span> 的时候！</p>
+            <p><strong>这完美地验证了我们第四幕的代数计算结果！</strong></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // === 图表绘制和交互逻辑 ===
+    const slider = document.getElementById('x-slider');
+    const chartInfo = document.getElementById('chart-info');
+    const ctx = document.getElementById('areaChart').getContext('2d');
+
+    // 生成图表数据
+    const labels = [];
+    const dataPoints = [];
+    for (let i = 0; i <= 10; i += 0.2) {
+        labels.push(i.toFixed(1));
+        dataPoints.push(-i * i + 10 * i);
+    }
+
+    // 创建图表
+    const areaChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: '面积 S = -x² + 10x',
+                data: dataPoints,
+                borderColor: '#3498db',
+                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                borderWidth: 3,
+                pointRadius: 0,
+                fill: true,
+                tension: 0.1
+            }, {
+                label: '当前选择点',
+                data: [],
+                borderColor: '#e74c3c',
+                backgroundColor: '#e74c3c',
+                pointRadius: 6,
+                pointHoverRadius: 8,
+                showLine: false
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: '矩形面积 (S) vs. 边长 (x) 的关系图',
+                    font: { size: 16 }
+                },
+                legend: { display: false }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: '边长 x (米)'
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: '面积 S (平方米)'
+                    },
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // 更新图表上的红点和信息
+    function updateChart(xValue) {
+        const yValue = -xValue * xValue + 10 * xValue;
+        const pointData = Array(labels.length).fill(null);
+        const closestIndex = labels.findIndex(label => parseFloat(label) >= xValue);
+        if (closestIndex !== -1) {
+            pointData[closestIndex] = yValue;
+        }
+        areaChart.data.datasets[1].data = pointData;
+        areaChart.update('none'); 
+        chartInfo.innerHTML = `当边长 x = ${xValue.toFixed(1)} 米时, 面积 S = ${yValue.toFixed(2)} 平方米`;
+    }
+
+    // 滑块事件监听
+    slider.addEventListener('input', (event) => {
+        const x = parseFloat(event.target.value);
+        updateChart(x);
+    });
+
+    // 页面加载时初始化
+    updateChart(parseFloat(slider.value));
+
+</script>
+
+</body>
+</html>

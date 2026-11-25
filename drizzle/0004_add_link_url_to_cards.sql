@@ -1,0 +1,1 @@
+ALTER TABLE cards ADD COLUMN link_url TEXT;

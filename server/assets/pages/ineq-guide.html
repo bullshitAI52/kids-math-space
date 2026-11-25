@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基本不等式终极指南：从理论到实践</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #28a745;
+            --accent-color: #ffc107;
+            --bg-color: #f8f9fa;
+            --card-bg-color: #ffffff;
+            --text-color: #212529;
+            --border-color: #dee2e6;
+        }
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.9;
+            padding: 20px;
+            font-size: 17px;
+        }
+        .container {
+            max-width: 850px;
+            margin: 0 auto;
+        }
+        .section {
+            background-color: var(--card-bg-color);
+            padding: 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.07);
+            margin-bottom: 35px;
+        }
+        h1, h2, h3 {
+            text-align: center;
+        }
+        h1 {
+            color: var(--primary-color);
+            font-size: 2.6em;
+            margin-bottom: 15px;
+        }
+        h2 {
+            font-size: 2em;
+            color: var(--text-color);
+            border-bottom: 3px solid var(--primary-color);
+            display: inline-block;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+        h3 {
+            font-size: 1.5em;
+            color: #343a40;
+            margin-top: 25px;
+        }
+        .theorem-box {
+            background-color: #e9ecef;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 5px solid var(--primary-color);
+            font-size: 1.2em;
+            text-align: center;
+        }
+        .highlight {
+            background-color: #fff3cd;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .input-area {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 25px 0;
+        }
+        .input-group {
+            flex-basis: 200px;
+        }
+        .input-group label {
+            font-size: 1.1em;
+            display: block;
+            margin-bottom: 8px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            font-size: 1.5em;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            font-size: 1.1em;
+        }
+        .results-grid div {
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .results-grid span {
+            font-weight: bold;
+            font-family: 'Courier New', Courier, monospace;
+            color: #d9534f;
+            float: right;
+        }
+        #equality-message, #area-result.peak {
+            background-color: var(--accent-color);
+            color: #000;
+            box-shadow: 0 0 10px var(--accent-color);
+            transition: all 0.2s;
+        }
+        .final-conclusion {
+            margin-top: 30px;
+            padding: 20px;
+            border: 2px solid var(--secondary-color);
+            background-color: #e6f7e9;
+            font-size: 1.2em;
+            font-weight: bold;
+            text-align: center;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>基本不等式终极指南</h1>
+        <p style="text-align:center; font-size: 1.2em; color: #6c757d;">从核心理论到互动实践的完整学习路径</p>
+    </header>
+
+    <section>
+        <div style="text-align:center;"><h2>第一章：核心理论</h2></div>
+        <p>一切的开始，源于数学中一个极其重要且优美的定理——<strong>基本不等式</strong>（或称均值不等式）。</p>
+        <div class="theorem-box">
+            对于任意非负数 \(a\) 和 \(b\)，它们的算术平均数永远大于或等于几何平均数：
+            $$ \frac{a+b}{2} \ge \sqrt{ab} $$
+            当且仅当 <span class="highlight">\(a=b\)</span> 时，等号成立。
+        </div>
+        <p>这个定理是后续所有应用的基石。简单来说，它揭示了“和”与“积”之间的一种深刻关系。</p>
+    </section>
+
+    <section>
+        <div style="text-align:center;"><h2>第二章：互动实验室：自由探索规律</h2></div>
+        <p>理论是抽象的，现在让我们亲手来验证它。请在下面输入任意两个非负数，观察它们算术平均数和几何平均数的变化。</p>
+        <div class="input-area">
+            <div class="input-group">
+                <label for="a-input">输入数字 a</label>
+                <input type="number" id="a-input" value="16" min="0">
+            </div>
+            <div class="input-group">
+                <label for="b-input">输入数字 b</label>
+                <input type="number" id="b-input" value="4" min="0">
+            </div>
+        </div>
+        <div class="results-grid">
+            <div>算术平均 \(\frac{a+b}{2}\) =<span id="am-value">10.00</span></div>
+            <div>几何平均 \(\sqrt{ab}\) =<span id="gm-value">8.00</span></div>
+            <div id="equality-message"></div>
+        </div>
+    </section>
+
+    <section>
+        <div style="text-align:center;"><h2>第三章：应用实践：求解最大面积问题</h2></div>
+        <h3>问题陈述</h3>
+        <p>设矩形的长为 \(x\)，宽为 \(y\)。已知周长为20，即 <span class="highlight">\(x+y=10\)</span>。我们的目标是求面积 <span class="highlight">\(S=xy\)</span> 的最大值。</p>
+        
+        <h3>理论推导</h3>
+        <p>根据第一章的理论，我们将 \(x\) 和 \(y\) 代入基本不等式：</p>
+        $$ \frac{x+y}{2} \ge \sqrt{xy} $$
+        <p>代入已知条件 \(x+y=10\) 和 \(S=xy\)，可得：</p>
+        $$ \frac{10}{2} \ge \sqrt{S} \implies 5 \ge \sqrt{S} \implies 25 \ge S $$
+        <p>这证明了面积 \(S\) 的最大值为25，在 \(x=y\) 时取得。</p>
+
+        <h3>动手验证</h3>
+        <p>现在，拖动下面的滑块来改变边长 `x` 的值（`y`会自动计算以保证`x+y=10`），亲自验证上述理论吧！</p>
+        <input type="range" id="slider" min="0.1" max="9.9" value="2.5" step="0.1" style="width:100%; margin-top:15px;">
+        <div class="results-grid">
+            <div>边长 x = <span id="x-value">2.5</span></div>
+            <div>边长 y = <span id="y-value">7.5</span></div>
+            <div>面积 S = xy = <span id="area-result">18.75</span></div>
+            <div>\(\frac{x+y}{2}\) =<span id="am-value-fixed">5.00</span></div>
+            <div>\(\sqrt{xy}\) =<span id="gm-value-derived">4.33</span></div>
+        </div>
+
+        <div class="final-conclusion">
+            最终结论：当长 \(x=5\)，宽 \(y=5\) 时（即矩形为正方形），面积 \(S\) 取得最大值，为 25。
+        </div>
+    </section>
+
+</div>
+
+<script>
+    // --- 第二章：自由探索的逻辑 ---
+    const aInput = document.getElementById('a-input');
+    const bInput = document.getElementById('b-input');
+    const amValueSpan = document.getElementById('am-value');
+    const gmValueSpan = document.getElementById('gm-value');
+    const equalityMessage = document.getElementById('equality-message');
+
+    function updateFreeExplore() {
+        let a = parseFloat(aInput.value) || 0;
+        let b = parseFloat(bInput.value) || 0;
+        if (a < 0) { a = 0; aInput.value = 0; }
+        if (b < 0) { b = 0; bInput.value = 0; }
+
+        const am = (a + b) / 2;
+        const gm = Math.sqrt(a * b);
+
+        amValueSpan.textContent = am.toFixed(2);
+        gmValueSpan.textContent = gm.toFixed(2);
+
+        if (Math.abs(a - b) < 0.001) {
+            equalityMessage.innerHTML = '发现：当 a = b 时，两个平均数相等！';
+        } else {
+            equalityMessage.innerHTML = '观察：算术平均数总是大于几何平均数。';
+        }
+    }
+
+    aInput.addEventListener('input', updateFreeExplore);
+    bInput.addEventListener('input', updateFreeExplore);
+    
+    // --- 第三章：应用实践的逻辑 ---
+    const slider = document.getElementById('slider');
+    const xValueSpan = document.getElementById('x-value');
+    const yValueSpan = document.getElementById('y-value');
+    const areaResultSpan = document.getElementById('area-result');
+    const amValueFixedSpan = document.getElementById('am-value-fixed');
+    const gmValueDerivedSpan = document.getElementById('gm-value-derived');
+
+    function updateApplication() {
+        let x = parseFloat(slider.value);
+        let y = 10 - x;
+        let area = x * y;
+        let am = (x + y) / 2;
+        let gm = Math.sqrt(area);
+
+        xValueSpan.textContent = x.toFixed(1);
+        yValueSpan.textContent = y.toFixed(1);
+        areaResultSpan.textContent = area.toFixed(2);
+        amValueFixedSpan.textContent = am.toFixed(2);
+        gmValueDerivedSpan.textContent = gm.toFixed(2);
+        
+        if (Math.abs(x - 5) < 0.05) {
+            areaResultSpan.classList.add('peak');
+            areaResultSpan.textContent += " (最大值!)";
+        } else {
+            areaResultSpan.classList.remove('peak');
+        }
+    }
+
+    slider.addEventListener('input', updateApplication);
+
+    // 页面加载时，立即执行一次两个模块的更新函数以显示初始值
+    updateFreeExplore();
+    updateApplication();
+
+</script>
+
+</body>
+</html>

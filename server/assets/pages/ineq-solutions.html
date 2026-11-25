@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>基本不等式解法精讲</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body {
+            font-family: 'Times New Roman', 'KaiTi', 'STSong', serif; /* 使用更具学术感的字体 */
+            font-size: 18px;
+            line-height: 2;
+            color: #333;
+            background-color: #fdfdfd;
+            display: flex;
+            justify-content: center;
+            padding-top: 40px;
+        }
+        .container {
+            width: 100%;
+            max-width: 750px;
+            border: 1px solid #ccc;
+            padding: 30px 50px;
+            background-color: #fff;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        h1 {
+            text-align: center;
+            font-size: 2em;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+        .step {
+            margin-bottom: 25px;
+        }
+        .step-title {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #3498db;
+        }
+        .formula-box {
+            background-color: #ecf0f1;
+            padding: 15px;
+            margin: 15px 0;
+            border-left: 5px solid #3498db;
+            font-size: 1.2em;
+            text-align: center;
+        }
+        .conclusion {
+            margin-top: 30px;
+            padding: 20px;
+            border: 2px solid #28a745;
+            background-color: #e8f5e9;
+            font-size: 1.2em;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>基本不等式求解最大面积问题</h1>
+
+    <div class="step">
+        <div class="step-title">第一步：定义问题</div>
+        <p>
+            设矩形的长为 \(x\)，宽为 \(y\)。
+            <br>
+            根据题意，我们已知周长为20，可得：
+            $$ 2(x+y) = 20 \implies x+y = 10 $$
+            我们的目标是求面积 \(S = xy\) 的最大值。
+            <br>
+            同时，因为 \(x\) 和 \(y\) 代表长度，所以它们都必须是正数（\(x > 0, y > 0\))。
+        </p>
+    </div>
+
+    <div class="step">
+        <div class="step-title">第二步：引入工具</div>
+        <p>
+            我们将使用<strong>基本不等式</strong>（或称均值不等式）。其内容是：
+        </p>
+        <div class="formula-box">
+            对于任意非负数 \(a\) 和 \(b\)，有：
+            $$ \frac{a+b}{2} \ge \sqrt{ab} $$
+            当且仅当 \(a=b\) 时，等号成立。
+        </div>
+    </div>
+
+    <div class="step">
+        <div class="step-title">第三步：应用与推导</div>
+        <p>
+            我们将矩形的长 \(x\) 和宽 \(y\) 代入不等式中的 \(a\) 和 \(b\)，得到：
+            $$ \frac{x+y}{2} \ge \sqrt{xy} $$
+            我们已知 \(x+y = 10\)，将其代入上式左边：
+            $$ \frac{10}{2} \ge \sqrt{xy} $$
+            $$ 5 \ge \sqrt{xy} $$
+            因为面积 \(S = xy\)，所以我们可以将 \(S\) 替换进去：
+            $$ 5 \ge \sqrt{S} $$
+            为了求出 \(S\) 的范围，我们将不等式两边同时平方：
+            $$ 5^2 \ge (\sqrt{S})^2 $$
+            $$ 25 \ge S $$
+        </p>
+    </div>
+
+    <div class="step">
+        <div class="step-title">第四步：分析结论</div>
+        <p>
+            不等式 \(S \le 25\) 明确地告诉我们，面积 \(S\) 的最大值是 <strong>25</strong>。
+            <br>
+            根据基本不等式的性质，只有当等号成立时，才能取到最大值。而等号成立的条件是：
+            $$ x = y $$
+            我们将这个条件代入已知关系 \(x+y=10\) 中：
+            $$ x + x = 10 \implies 2x = 10 \implies x = 5 $$
+            因为 \(x=y\)，所以 \(y\) 也等于5。
+        </p>
+    </div>
+
+    <div class="conclusion">
+        最终结论：当长 \(x=5\)，宽 \(y=5\) 时（即矩形为正方形），<br>面积 \(S\) 取得最大值，为 25。
+    </div>
+
+</div>
+
+</body>
+</html>

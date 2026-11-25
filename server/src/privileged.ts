@@ -151,6 +151,19 @@ export const privileged = definePrivilegedContracts({
     }),
     timeoutMs: 30000,
   },
+  readSeedPagesV13: {
+    request: z.object({}),
+    response: z.object({
+      pages: z.array(
+        z.object({
+          slot: z.string(),
+          html: z.string(),
+        }),
+      ),
+      comicPages: z.array(z.string()),
+    }),
+    timeoutMs: 30000,
+  },
 });
 
 // slot -> exact source for that starter card's image. Three cards use the
@@ -555,5 +568,65 @@ export const privilegedHandlers = definePrivilegedHandlers(privileged, {
   },
   async readSeedImagesV11() {
     return { images: readSeedFiles(SEED_FILES_V11) };
+  },
+  async readSeedPagesV13() {
+    const home = homedir();
+    const pagesDir = join(home, ...ASSETS, "pages");
+    // slot -> tutorial HTML file fetched from the user's own server
+    // (public IP, 2026-11-25) and stored under server/assets/pages/.
+    const PAGE_FILES: ReadonlyArray<{ slot: string; file: string }> = [
+      { slot: "oopAdvanced", file: "oop-advanced.html" },
+      { slot: "oopTutorial", file: "oop-tutorial.html" },
+      { slot: "ineqSolutions", file: "ineq-solutions.html" },
+      { slot: "ineqGuide", file: "ineq-guide.html" },
+      { slot: "areaFormulas", file: "area-formulas.html" },
+      { slot: "factorization", file: "factorization.html" },
+      { slot: "circleEquation", file: "circle-equation.html" },
+      { slot: "signedNumbers", file: "signed-numbers.html" },
+    ];
+    const pages: Array<{ slot: string; html: string }> = [];
+    for (const { slot, file } of PAGE_FILES) {
+      const path = join(pagesDir, file);
+      if (!existsSync(path)) continue;
+      let html = readFileSync(path, "utf8");
+      if (slot === "factorization") {
+        // The page references 5 sibling PNGs that return 404 on the
+        // origin server (never uploaded); clean redrawn diagrams with
+        // the same filenames live next to the HTML here — inline them
+        // as data URIs so the stored page is fully self-contained.
+        for (const name of [
+          "placeholder_cake",
+          "placeholder_common_friends",
+          "placeholder_cross_multiplication",
+          "placeholder_perfect_square",
+          "placeholder_square_difference",
+        ]) {
+          const imgPath = join(pagesDir, `${name}.png`);
+          if (!existsSync(imgPath)) continue;
+          const b64 = readFileSync(imgPath).toString("base64");
+          html = html.split(`src="${name}.png"`).join(
+            `src="data:image/png;base64,${b64}"`,
+          );
+        }
+      }
+      pages.push({ slot, html });
+    }
+    let comicPages: string[] = [];
+    const manifestPath = join(pagesDir, "comic-pages.json");
+    if (existsSync(manifestPath)) {
+      try {
+        const parsed: unknown = JSON.parse(
+          readFileSync(manifestPath, "utf8"),
+        );
+        if (Array.isArray(parsed)) {
+          comicPages = parsed.filter(
+            (p): p is string => typeof p === "string",
+          );
+        }
+      } catch {
+        comicPages = [];
+      }
+    }
+    return { pages, comicPages };
   },
 });

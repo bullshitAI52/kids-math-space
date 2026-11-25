@@ -48,6 +48,7 @@ export function App() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [managerOpen, setManagerOpen] = useState(false);
   const [lightbox, setLightbox] = useState<Card | null>(null);
+  const [contentCard, setContentCard] = useState<Card | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   // Esc closes the fullscreen image viewer (mouse/keyboard devices).
@@ -200,6 +201,21 @@ export function App() {
     seedV11Ref.current = true;
     seedV11.mutate();
   }, [library.data, seedV11]);
+
+  // One-time seeding of the 9 专题 cards (8 tutorials stored inside
+  // the space + the 漫画数学 reader card, new 数学漫画 category). Same
+  // pattern as the v11 seed: the action is idempotent server-side and
+  // replaces any same-title link card from the short-lived v12 seed.
+  const seedV13Ref = useRef(false);
+  const seedV13 = useMutation({
+    mutationFn: () => api.seedLibraryV13({}),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["library"] }),
+  });
+  useEffect(() => {
+    if (!library.data || seedV13Ref.current) return;
+    seedV13Ref.current = true;
+    seedV13.mutate();
+  }, [library.data, seedV13]);
 
   // One-time seeding of the practice questions (batches A–D, 3 per
   // card). The action only fills cards whose practice is still empty,
@@ -415,6 +431,7 @@ export function App() {
                     card={card}
                     category={categoryById.get(card.category_id)}
                     onOpenImage={() => setLightbox(card)}
+                    onOpenContent={() => setContentCard(card)}
                     onEdit={() => openEdit(card)}
                     onDeleteError={setNotice}
                   />
@@ -475,6 +492,154 @@ export function App() {
           </div>
         </div>
       )}
+
+      {contentCard && (
+        <ContentViewer
+          key={contentCard.id}
+          card={contentCard}
+          onClose={() => setContentCard(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+const COMIC_RAW_BASE =
+  "https://raw.githubusercontent.com/bullshitAI52/mathmanhua123/main/";
+
+// Full-screen in-space viewer for 专题 cards: tutorial cards render
+// their stored HTML in a sandboxed iframe (srcDoc), the comic card
+// becomes a page-flip reader whose images load straight from the
+// GitHub repo's raw URLs. Nothing navigates away from the space.
+function ContentViewer({
+  card,
+  onClose,
+}: {
+  card: Card;
+  onClose: () => void;
+}) {
+  const content = useQuery({
+    queryKey: ["cardContent", card.id],
+    queryFn: () => api.getCardContent({ id: card.id }),
+  });
+  const [page, setPage] = useState(0);
+
+  // Esc closes the viewer; arrow keys flip comic pages.
+  const comicPageCount =
+    content.data?.kind === "comic" ? content.data.pages.length : 0;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (comicPageCount > 0) {
+        if (e.key === "ArrowRight")
+          setPage((p) => Math.min(p + 1, comicPageCount - 1));
+        if (e.key === "ArrowLeft") setPage((p) => Math.max(p - 1, 0));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, comicPageCount]);
+
+  const pages = content.data?.kind === "comic" ? content.data.pages : [];
+  const current = pages[page];
+
+  // Preload the next comic page so flipping feels instant.
+  useEffect(() => {
+    const next = pages[page + 1];
+    if (next) {
+      const img = new Image();
+      img.src = COMIC_RAW_BASE + encodeURIComponent(next);
+    }
+  }, [pages, page]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-[#FFF9F0]"
+      role="dialog"
+      aria-modal="true"
+      aria-label={card.title}
+    >
+      <div className="flex items-center justify-between gap-3 border-b-[3px] border-[var(--border)] px-4 pb-2 pt-safe">
+        <p className="min-w-0 truncate text-[18px] font-extrabold">
+          {card.title}
+        </p>
+        <button
+          type="button"
+          aria-label="关闭专题"
+          onClick={onClose}
+          className="shrink-0 rounded-full bg-[#2B2118] px-4 py-2 text-[16px] font-bold text-white active:scale-95"
+        >
+          关闭
+        </button>
+      </div>
+
+      {content.isPending && (
+        <p className="py-16 text-center text-[20px] font-bold text-[var(--dim)]">
+          正在打开…
+        </p>
+      )}
+      {content.isError && (
+        <div className="py-16 text-center">
+          <p className="text-[20px] font-bold">没打开，再试一次吧。</p>
+          <button
+            type="button"
+            onClick={() => content.refetch()}
+            className="mt-4 rounded-full bg-[var(--accent)] px-6 py-2 text-[17px] font-extrabold text-white active:scale-95"
+          >
+            重新打开
+          </button>
+        </div>
+      )}
+
+      {content.data?.kind === "page" && content.data.html && (
+        <iframe
+          title={card.title}
+          srcDoc={content.data.html}
+          sandbox="allow-scripts"
+          className="min-h-0 w-full flex-1 border-0 bg-white"
+        />
+      )}
+
+      {content.data?.kind === "comic" && current && (
+        <>
+          <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-[#2B2118] p-2">
+            <img
+              src={COMIC_RAW_BASE + encodeURIComponent(current)}
+              alt={`漫画数学 第 ${page + 1} 页`}
+              className="max-h-full w-auto max-w-full object-contain"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-3 border-t-[3px] border-[var(--border)] px-4 py-3 pb-safe">
+            <button
+              type="button"
+              disabled={page === 0}
+              onClick={() => setPage((p) => Math.max(p - 1, 0))}
+              className="rounded-full border-[3px] border-[var(--border)] bg-white px-5 py-2 text-[17px] font-extrabold active:scale-95 disabled:opacity-40"
+            >
+              ← 上一页
+            </button>
+            <span className="text-[16px] font-bold text-[var(--dim)]">
+              第 {page + 1} / {pages.length} 页
+            </span>
+            <button
+              type="button"
+              disabled={page >= pages.length - 1}
+              onClick={() =>
+                setPage((p) => Math.min(p + 1, pages.length - 1))
+              }
+              className="rounded-full bg-[var(--accent)] px-5 py-2 text-[17px] font-extrabold text-white active:scale-95 disabled:opacity-40"
+            >
+              下一页 →
+            </button>
+          </div>
+        </>
+      )}
+
+      {content.data?.kind === "none" && (
+        <p className="py-16 text-center text-[19px] font-bold text-[var(--dim)]">
+          这张卡没有内置内容。
+        </p>
+      )}
     </div>
   );
 }
@@ -533,12 +698,14 @@ function CardItem({
   card,
   category,
   onOpenImage,
+  onOpenContent,
   onEdit,
   onDeleteError,
 }: {
   card: Card;
   category: Category | undefined;
   onOpenImage: () => void;
+  onOpenContent: () => void;
   onEdit: () => void;
   onDeleteError: (msg: string) => void;
 }) {
@@ -552,6 +719,13 @@ function CardItem({
     onError: (e) =>
       onDeleteError(e instanceof Error ? e.message : "删除失败，再试一次。"),
   });
+
+  const isLink = Boolean(card.link_url);
+  const openLink = () => {
+    if (card.link_url) {
+      window.open(card.link_url, "_blank", "noopener,noreferrer");
+    }
+  };
 
   return (
     <article
@@ -574,22 +748,68 @@ function CardItem({
         </button>
       )}
       <div className="flex flex-1 flex-col p-4">
-        {category && (
-          <span
-            className="self-start rounded-full px-3 py-1 text-[14px] font-extrabold text-white"
-            style={{ backgroundColor: color }}
+        <div className="flex flex-wrap items-center gap-2">
+          {category && (
+            <span
+              className="rounded-full px-3 py-1 text-[14px] font-extrabold text-white"
+              style={{ backgroundColor: color }}
+            >
+              {category.name}
+            </span>
+          )}
+          {card.content_kind ? (
+            <span className="rounded-full border-[3px] border-dashed px-3 py-0.5 text-[14px] font-extrabold" style={{ borderColor: color, color }}>
+              专题
+            </span>
+          ) : isLink ? (
+            <span className="rounded-full border-[3px] border-dashed px-3 py-0.5 text-[14px] font-extrabold" style={{ borderColor: color, color }}>
+              链接卡
+            </span>
+          ) : null}
+        </div>
+        {isLink && !card.content_kind ? (
+          <button
+            type="button"
+            onClick={openLink}
+            aria-label={`打开学习：${card.title}`}
+            className="mt-2 text-left active:scale-[0.99]"
           >
-            {category.name}
-          </span>
+            <span className="block text-[22px] font-extrabold leading-snug underline decoration-[3px] underline-offset-4 md:text-[24px]" style={{ textDecorationColor: color }}>
+              {card.title}
+            </span>
+          </button>
+        ) : (
+          <h2 className="mt-2 text-[22px] font-extrabold leading-snug md:text-[24px]">
+            {card.title}
+          </h2>
         )}
-        <h2 className="mt-2 text-[22px] font-extrabold leading-snug md:text-[24px]">
-          {card.title}
-        </h2>
         {card.points && (
           <p className="mt-2 whitespace-pre-line text-[17px] leading-relaxed md:text-[18px]">
             {card.points}
           </p>
         )}
+        {card.content_kind ? (
+          <button
+            type="button"
+            onClick={onOpenContent}
+            aria-label={`打开专题：${card.title}`}
+            className="mt-3 self-start rounded-full px-5 py-2 text-[17px] font-extrabold text-white active:scale-95"
+            style={{ backgroundColor: color }}
+          >
+            {card.content_kind === "comic"
+              ? `翻开漫画（共 ${card.page_count} 页）`
+              : "开始学习"}
+          </button>
+        ) : isLink ? (
+          <button
+            type="button"
+            onClick={openLink}
+            className="mt-3 self-start rounded-full px-5 py-2 text-[17px] font-extrabold text-white active:scale-95"
+            style={{ backgroundColor: color }}
+          >
+            打开学习 ↗
+          </button>
+        ) : null}
         {card.practice.length > 0 && (
           <div className="mt-3 rounded-2xl bg-[#FFF9F0] p-3">
             <p className="text-[16px] font-extrabold" style={{ color }}>
@@ -676,6 +896,7 @@ function CardEditor({
           .join("\n")
       : "",
   );
+  const [linkUrl, setLinkUrl] = useState(card?.link_url ?? "");
   const [categoryId, setCategoryId] = useState<number | null>(
     card?.category_id ?? defaultCategoryId ?? categories[0]?.id ?? null,
   );
@@ -709,6 +930,7 @@ function CardEditor({
           image: img,
           removeImage: image.kind === "none",
           practiceText: practiceText.trim(),
+          linkUrl: linkUrl.trim(),
         });
       }
       return await api.addCard({
@@ -717,6 +939,7 @@ function CardEditor({
         categoryId: categoryId as number,
         image: img,
         practiceText: practiceText.trim(),
+        linkUrl: linkUrl.trim(),
       });
     },
     onSuccess: () => {
@@ -749,6 +972,10 @@ function CardEditor({
     }
     if (categoryId == null) {
       setError("先选一个分类。");
+      return;
+    }
+    if (linkUrl.trim() && !/^https?:\/\//.test(linkUrl.trim())) {
+      setError("链接要以 http:// 或 https:// 开头。");
       return;
     }
     setError(null);
@@ -892,6 +1119,25 @@ function CardEditor({
           placeholder="比如：找两个数，相加等于一次项系数，相乘等于常数项…"
           className="mt-1 w-full rounded-2xl border-[3px] border-[var(--border)] px-4 py-2.5 text-[17px] leading-relaxed outline-none focus:border-[var(--accent)]"
         />
+
+        <label
+          htmlFor="card-link"
+          className="mt-4 block text-[16px] font-extrabold"
+        >
+          学习链接（可选，填了就是链接卡）
+        </label>
+        <input
+          {...FIELDS.addCard.linkUrl}
+          id="card-link"
+          type="url"
+          value={linkUrl}
+          onChange={(e) => setLinkUrl(e.target.value)}
+          placeholder="比如：http://www.shuanghai.shop/xby/"
+          className="mt-1 w-full rounded-2xl border-[3px] border-[var(--border)] px-4 py-2.5 text-[17px] outline-none focus:border-[var(--accent)]"
+        />
+        <p className="mt-1 text-[14px] font-bold text-[var(--dim)]">
+          填了链接，卡片上会多一个「打开学习 ↗」按钮，点开就是这个网页；留空就是普通知识卡。
+        </p>
 
         <label
           htmlFor="card-practice"
