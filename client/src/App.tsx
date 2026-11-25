@@ -43,6 +43,29 @@ export function App() {
   const [selectedCategory, setSelectedCategory] = useState<number | "all">(
     "all",
   );
+  // Category chips are collapsed by default so the first screen shows
+  // more cards; the kid's last open/closed choice is remembered.
+  const [categoryOpen, setCategoryOpen] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem("math-space-category-open") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleCategoryOpen = () => {
+    setCategoryOpen((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(
+          "math-space-category-open",
+          next ? "1" : "0",
+        );
+      } catch {
+        // Storage unavailable (private mode etc.) — toggle still works.
+      }
+      return next;
+    });
+  };
   const [search, setSearch] = useState("");
   const [editorCard, setEditorCard] = useState<Card | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -294,7 +317,28 @@ export function App() {
             </button>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            aria-expanded={categoryOpen}
+            aria-label={
+              categoryOpen ? "收起分类按钮" : "展开分类按钮"
+            }
+            onClick={toggleCategoryOpen}
+            className="mt-1 flex min-h-[44px] w-full items-center gap-1.5 text-left text-[16px] font-bold text-[var(--dim)] active:scale-[0.99]"
+          >
+            <span>
+              分类：
+              {selectedCategory === "all"
+                ? "全部"
+                : (categoryById.get(selectedCategory)?.name ?? "全部")}
+            </span>
+            <span aria-hidden="true" className="text-[14px]">
+              {categoryOpen ? "▼" : "▶"}
+            </span>
+          </button>
+
+          {categoryOpen && (
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               aria-pressed={selectedCategory === "all"}
@@ -335,6 +379,7 @@ export function App() {
               管理分类
             </button>
           </div>
+          )}
         </div>
       </header>
 

@@ -54,6 +54,14 @@
   @media (min-width:768px){ #search{max-width:400px} }
   @media (min-width:1024px){ #search{max-width:460px} }
 
+  /* ---------- category fold header ---------- */
+  .fold-head{
+    display:flex;align-items:center;gap:8px;margin-top:12px;
+    min-height:40px;padding:6px 4px;background:none;border:none;
+    font-size:16px;font-weight:800;color:var(--text);text-align:left;
+  }
+  .fold-head .fold-tri{font-size:13px;color:var(--accent)}
+
   /* ---------- chips: capsule + chunky bottom edge ---------- */
   .chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
   .chip{
@@ -267,6 +275,7 @@
       <label for="search" style="position:absolute;left:-9999px">搜索卡片</label>
       <input id="search" type="search" placeholder="搜一搜：十字相乘、括号…" autocomplete="off">
     </div>
+    <button type="button" class="fold-head" id="chipFold" aria-expanded="false" aria-controls="chips"><span id="chipFoldLabel">分类：全部</span><span class="fold-tri" id="chipFoldTri" aria-hidden="true">▶</span></button>
     <div class="chips" id="chips"></div>
   </div>
 </header>
@@ -348,6 +357,22 @@
   var query = "";
 
   var chipsEl = document.getElementById("chips");
+  var foldEl = document.getElementById("chipFold");
+  var foldLabel = document.getElementById("chipFoldLabel");
+  var foldTri = document.getElementById("chipFoldTri");
+  var chipsOpen = false;
+  try { chipsOpen = localStorage.getItem("km-chips-open") === "1"; } catch (e) {}
+  function applyFold() {
+    chipsEl.style.display = chipsOpen ? "" : "none";
+    foldTri.textContent = chipsOpen ? "▼" : "▶";
+    foldEl.setAttribute("aria-expanded", chipsOpen ? "true" : "false");
+    foldLabel.textContent = "分类：" + (selected === "all" ? "全部" : selected);
+  }
+  foldEl.addEventListener("click", function () {
+    chipsOpen = !chipsOpen;
+    try { localStorage.setItem("km-chips-open", chipsOpen ? "1" : "0"); } catch (e) {}
+    applyFold();
+  });
   var gridEl = document.getElementById("grid");
   var countEl = document.getElementById("countLine");
   var emptyEl = document.getElementById("empty");
@@ -400,6 +425,7 @@
       b.addEventListener("click", function () { selected = cat.name; render(); });
       chipsEl.appendChild(b);
     });
+    applyFold();
   }
 
   function visibleCards() {
