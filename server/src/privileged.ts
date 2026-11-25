@@ -138,6 +138,19 @@ export const privileged = definePrivilegedContracts({
     }),
     timeoutMs: 30000,
   },
+  readSeedImagesV11: {
+    request: z.object({}),
+    response: z.object({
+      images: z.array(
+        z.object({
+          slot: z.string(),
+          dataBase64: z.string(),
+          mimeType: z.string(),
+        }),
+      ),
+    }),
+    timeoutMs: 30000,
+  },
 });
 
 // slot -> exact source for that starter card's image. Three cards use the
@@ -483,6 +496,20 @@ const SEED_FILES_V10: ReadonlyArray<{
   { slot: "vectorDot", pathParts: [...ASSETS, "vector-dot.png"], mimeType: "image/png" },
 ];
 
+// slot -> exact source for the v11 batch (2026-11-25): 4 new
+// 整式运算 cards (new category). All four are redrawn clean diagrams
+// in server/assets/.
+const SEED_FILES_V11: ReadonlyArray<{
+  slot: string;
+  pathParts: string[];
+  mimeType: string;
+}> = [
+  { slot: "powerSameBase", pathParts: [...ASSETS, "power-same-base.png"], mimeType: "image/png" },
+  { slot: "powerOfPower", pathParts: [...ASSETS, "power-of-power.png"], mimeType: "image/png" },
+  { slot: "monoTimes", pathParts: [...ASSETS, "mono-times.png"], mimeType: "image/png" },
+  { slot: "polyTimesPoly", pathParts: [...ASSETS, "poly-times-poly.png"], mimeType: "image/png" },
+];
+
 function readSeedFiles(
   files: ReadonlyArray<{ slot: string; pathParts: string[]; mimeType: string }>,
 ): Array<{ slot: string; dataBase64: string; mimeType: string }> {
@@ -525,5 +552,8 @@ export const privilegedHandlers = definePrivilegedHandlers(privileged, {
   },
   async readSeedImagesV10() {
     return { images: readSeedFiles(SEED_FILES_V10) };
+  },
+  async readSeedImagesV11() {
+    return { images: readSeedFiles(SEED_FILES_V11) };
   },
 });

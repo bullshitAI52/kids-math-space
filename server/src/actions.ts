@@ -16,14 +16,77 @@ const categoryShape = z.object({
   card_count: z.number(),
 });
 
+const practiceItemShape = z.object({
+  q: z.string(),
+  a: z.string(),
+});
+
 const cardShape = z.object({
   id: z.number(),
   title: z.string(),
   points: z.string(),
   category_id: z.number(),
   image_url: z.string().nullable(),
+  practice: z.array(practiceItemShape),
   created_at: z.string(),
 });
+
+// Parse the stored practice JSON; anything malformed reads as no
+// practice rather than breaking the whole library.
+function parsePractice(raw: string): { q: string; a: string }[] {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const out: { q: string; a: string }[] = [];
+    for (const item of parsed) {
+      if (
+        item &&
+        typeof item === "object" &&
+        typeof (item as { q?: unknown }).q === "string" &&
+        typeof (item as { a?: unknown }).a === "string"
+      ) {
+        out.push({
+          q: (item as { q: string }).q,
+          a: (item as { a: string }).a,
+        });
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+// The editor's practice input: one question per line, the answer on
+// the same line after 「答：」 (a line starting with 「答：」 continues
+// the previous question's answer). Lines without 「答：」 are kept as
+// questions with an empty answer.
+function parsePracticeText(text: string): { q: string; a: string }[] {
+  const out: { q: string; a: string }[] = [];
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const marker = line.indexOf("答：");
+    if (marker === 0) {
+      const prev = out[out.length - 1];
+      if (prev) {
+        const ans = line.slice(2).trim();
+        prev.a = prev.a ? `${prev.a} ${ans}` : ans;
+      }
+      continue;
+    }
+    if (marker > 0) {
+      out.push({
+        q: line.slice(0, marker).trim(),
+        a: line.slice(marker + 2).trim(),
+      });
+    } else {
+      out.push({ q: line, a: "" });
+    }
+  }
+  return out.filter((item) => item.q.length > 0).slice(0, 20);
+}
+
 
 const libraryResponse = z.object({
   categories: z.array(categoryShape),
@@ -676,6 +739,663 @@ const SEED_CARDS_V10: ReadonlyArray<{
   },
 ];
 
+// The 4 cards of the v11 batch (2026-11-25): a new category 「整式运算」
+// the user asked for, laying the groundwork for 乘法公式/因式分解.
+// Titles, categories, and 要点 are the user's own words, verbatim; each
+// card's 3 practice questions live in PRACTICE_E below.
+const SEED_CARDS_V11: ReadonlyArray<{
+  slot: string;
+  title: string;
+  categoryName: string;
+  points: string;
+}> = [
+  {
+    slot: "powerSameBase",
+    title: "同底数幂相乘：底数不变，指数相加",
+    categoryName: "整式运算",
+    points:
+      "a^m × a^n = a^(m+n)。只有底数相同才能用这个公式。本质是把乘法展开数一数：一共几个 a 连乘，指数就是几。",
+  },
+  {
+    slot: "powerOfPower",
+    title: "幂的乘方与积的乘方",
+    categoryName: "整式运算",
+    points:
+      "幂的乘方 (a^m)^n = a^(mn)，指数相乘；积的乘方 (ab)^n = a^n·b^n，括号里每个因数都要乘方。和同底数幂相乘分清：同底数幂相乘是加指数，乘方是乘指数。",
+  },
+  {
+    slot: "monoTimes",
+    title: "单项式乘除：系数和字母分开算",
+    categoryName: "整式运算",
+    points:
+      "单项式相乘：系数乘系数，同底数字母指数相加；单项式相除：系数除系数，同底数字母指数相减。带数字的部分叫系数，先算符号再算数。",
+  },
+  {
+    slot: "polyTimesPoly",
+    title: "多项式乘多项式：一项一项乘，不重不漏",
+    categoryName: "整式运算",
+    points:
+      "(a+b)(c+d) = ac + ad + bc + bd。前一个括号里的每一项，都要乘后一个括号里的每一项，一共 4 项，乘完再合并同类项。用箭头或格子表可以防漏项。",
+  },
+];
+
+// ---------- practice seeds (2026-11-25, batches A–D) ----------
+// Three questions per card: 基础题 (direct application), 变式题
+// (new numbers / new phrasing), 应用或易错题. Every answer was
+// computed and checked by hand before being written here; answers
+// carry the result plus one or two key steps. The seedPractice
+// action fills a card's practice only while it is still empty, so
+// practice a user typed or edited is never overwritten.
+type PracticeDef = {
+  title: string;
+  items: { q: string; a: string }[];
+};
+
+const PRACTICE_A: PracticeDef[] = [
+  {
+    title: "差的平方：用面积看懂 (a − b)²",
+    items: [
+      { q: "计算 (7 − 3)²，并用公式展开验算。", a: "(7 − 3)² = 4² = 16；公式展开：49 − 2×7×3 + 9 = 49 − 42 + 9 = 16，对上了。" },
+      { q: "用公式展开 (x − 5)²。", a: "x² − 10x + 25。中间项 2ab = 2·x·5 = 10x，前面带负号。" },
+      { q: "(a − b)² 能不能直接写成 a² − b²？用 a = 5、b = 2 验算看看。", a: "不能。(5 − 2)² = 9，而 5² − 2² = 21；公式里中间项 −2ab 不能丢：25 − 20 + 4 = 9。" },
+    ],
+  },
+  {
+    title: "和的平方：(a + b)² 的面积图",
+    items: [
+      { q: "用公式展开 (x + 4)²。", a: "x² + 8x + 16。中间项 2ab = 2·x·4 = 8x。" },
+      { q: "把 21 拆成 20 + 1，用公式算 21²。", a: "(20 + 1)² = 400 + 2×20×1 + 1 = 400 + 40 + 1 = 441。" },
+      { q: "(3 + 2)² 有人写成 3² + 2² = 13，对吗？", a: "不对，漏了中间项 2ab：9 + 12 + 4 = 25，和 (3 + 2)² = 5² = 25 对上。" },
+    ],
+  },
+  {
+    title: "完全平方公式速算：接近整百、整千的数",
+    items: [
+      { q: "计算 103²。", a: "(100 + 3)² = 10000 + 600 + 9 = 10609。" },
+      { q: "计算 997²。", a: "(1000 − 3)² = 1000000 − 6000 + 9 = 994009。" },
+      { q: "算 99² 时有人算成 100² − 1² = 9999，对吗？", a: "不对，漏了中间项：(100 − 1)² = 10000 − 200 + 1 = 9801。" },
+    ],
+  },
+  {
+    title: "平方差公式：a² − b² = (a + b)(a − b)",
+    items: [
+      { q: "把 52 × 48 写成 (50 + 2)(50 − 2)，用平方差公式计算。", a: "50² − 2² = 2500 − 4 = 2496。" },
+      { q: "分解因式：x² − 36。", a: "(x + 6)(x − 6)。36 是 6²，套平方差公式。" },
+      { q: "计算 201² − 199²。", a: "(201 + 199) × (201 − 199) = 400 × 2 = 800。直接平方再减要算很久，公式一下就好。" },
+    ],
+  },
+  {
+    title: "因式分解：十字相乘法",
+    items: [
+      { q: "分解因式：x² + 7x + 12。", a: "找 3 和 4：3 + 4 = 7、3 × 4 = 12，所以是 (x + 3)(x + 4)。" },
+      { q: "分解因式：x² − 2x − 15。", a: "找 −5 和 3：−5 + 3 = −2、−5 × 3 = −15，所以是 (x − 5)(x + 3)。" },
+      { q: "分解 x² + 5x − 6 时有人写 (x + 2)(x + 3)，对吗？", a: "不对，2 × 3 = 6 ≠ −6。要找 6 和 −1：(x + 6)(x − 1)，展开验算正好是 x² + 5x − 6。" },
+    ],
+  },
+  {
+    title: "提公因式法：先找公因式",
+    items: [
+      { q: "分解因式：6x + 9。", a: "公因式是 3：3(2x + 3)。展开验算 6x + 9 ✓。" },
+      { q: "分解因式：4a² − 8a。", a: "公因式是 4a（系数最大公约数 4，字母 a 取最低次）：4a(a − 2)。" },
+      { q: "分解 3x² + 6x，提成 3x(x + 2) 和提成 3(x² + 2x)，哪个提干净了？", a: "3x(x + 2) 提干净了。3(x² + 2x) 的括号里还有公因式 x 没提出来。" },
+    ],
+  },
+  {
+    title: "搞定带符号的括号：两种方法大对决",
+    items: [
+      { q: "化简：4 − 3(2x − 1)。", a: "把 −3 一起乘进去：4 − 6x + 3 = 7 − 6x。注意 (−3) × (−1) = +3。" },
+      { q: "解方程：6 − 2(2x − 3) = 10。", a: "去括号：6 − 4x + 6 = 10，合并得 −4x = −2，x = 1/2。验算：6 − 2×(1 − 3) = 6 + 4 = 10 ✓。" },
+      { q: "化简 3 − (x − 5) 时有人写 3 − x − 5，对吗？", a: "不对。括号前是负号，−5 要变 +5：3 − x + 5 = 8 − x。" },
+    ],
+  },
+  {
+    title: "去括号：−2(x−2) 先变成 −(2x−4)",
+    items: [
+      { q: "化简：5x − 3(x − 1)。", a: "先乘进去：5x − 3x + 3 = 2x + 3。" },
+      { q: "计算：7 − 2(3 − x)。", a: "7 − 6 + 2x = 1 + 2x。注意 (−2) × (−x) = +2x。" },
+      { q: "化简 −(4 − 2x) 时有人写 −4 − 2x，对吗？", a: "不对。负号入内每项变号：−4 + 2x。" },
+    ],
+  },
+  {
+    title: "去括号规则：负号入内，每项变号",
+    items: [
+      { q: "化简：−(3a + 2b)。", a: "−3a − 2b。每一项都变号。" },
+      { q: "化简：8 − (2x − 3)。", a: "8 − 2x + 3 = 11 − 2x。−3 变成了 +3。" },
+      { q: "化简 10 − 2(x + 4) 时有人得 10 − 2x + 8，对吗？", a: "不对，(−2) × (+4) = −8：10 − 2x − 8 = 2 − 2x。" },
+    ],
+  },
+  {
+    title: "解方程基本功：合并同类项",
+    items: [
+      { q: "化简：5x + 3 − 2x + 7。", a: "x 项合并、常数归堆：3x + 10。" },
+      { q: "解方程：2x + 5x − 3 = 18。", a: "合并得 7x = 21，x = 3。验算：6 + 15 − 3 = 18 ✓。" },
+      { q: "解方程 −x = −8，x 等于几？有人答 −8。", a: "x = 8。两边同除以 −1，符号别弄丢。" },
+    ],
+  },
+  {
+    title: "带括号的方程：完整例题",
+    items: [
+      { q: "解方程：2(x + 3) = 14。", a: "去括号：2x + 6 = 14，x = 4。验算：2 × 7 = 14 ✓。" },
+      { q: "解方程：4x − 2(x − 5) = 12。", a: "去括号：4x − 2x + 10 = 12，2x = 2，x = 1。验算：4 − 2×(−4) = 4 + 8 = 12 ✓。" },
+      { q: "解方程 3(x − 2) = 2x 时，有人去括号写成 3x − 2，对吗？", a: "不对，3 × (−2) = −6：3x − 6 = 2x，x = 6。验算：3 × 4 = 12 = 2 × 6 ✓。" },
+    ],
+  },
+  {
+    title: "解一元一次不等式：把 x 挪到右边",
+    items: [
+      { q: "解不等式：8 − 2x < 4。", a: "把 x 挪到右边：8 − 4 < 2x，4 < 2x，x > 2。全程没除以负数，不用变号。" },
+      { q: "解不等式：20 − 5x > 5。", a: "20 − 5 > 5x，15 > 5x，x < 3。" },
+      { q: "解 −3x > 9 时有人直接写 x > −3，对吗？", a: "不对。两边除以 −3 必须变号：x < −3。" },
+    ],
+  },
+  {
+    title: "符号乘法口诀：同号得正，异号得负",
+    items: [
+      { q: "计算：(−4) × (−6) 和 (−4) × 6。", a: "同号得正：24；异号得负：−24。" },
+      { q: "化简：−3(2x − 5)。", a: "−6x + 15。注意 (−3) × (−5) = +15，负负得正。" },
+      { q: "(−2) × (−3) × (−1) 等于几？有人答 6。", a: "先算 (−2) × (−3) = 6，再 × (−1) = −6。三个负数连乘，结果是负数。" },
+    ],
+  },
+  {
+    title: "一类方程：ax + b(c − x) = d",
+    items: [
+      { q: "解方程：3x + 2(5 − x) = 12。", a: "去括号：3x + 10 − 2x = 12，x = 2。验算：6 + 2×3 = 12 ✓。" },
+      { q: "解方程：x + 3(6 − x) = 10。", a: "去括号：x + 18 − 3x = 10，−2x = −8，x = 4。验算：4 + 3×2 = 10 ✓。" },
+      { q: "钢笔 5 元一支、铅笔 2 元一支，共买 8 支花了 31 元。设钢笔 x 支，列出 ax + b(c − x) = d 型的方程并求解。", a: "5x + 2(8 − x) = 31。去括号：5x + 16 − 2x = 31，3x = 15，x = 5 支。验算：25 + 2×3 = 31 ✓。" },
+    ],
+  },
+  {
+    title: "不等式移项，符号不变",
+    items: [
+      { q: "解不等式：6 + 4x > 22。", a: "移项：4x > 22 − 6 = 16，x > 4。不等号方向没变。" },
+      { q: "解不等式：9 − 2x ≥ 3（把 x 挪到右边做）。", a: "9 − 3 ≥ 2x，6 ≥ 2x，x ≤ 3。" },
+      { q: "解不等式：5x − 3 < 2x + 9。", a: "移项：5x − 2x < 9 + 3，3x < 12，x < 4。移项只让被移的项变号，不等号本身不变。" },
+    ],
+  },
+  {
+    title: "二元一次方程组：加减消元法",
+    items: [
+      { q: "解方程组：x + y = 10，x − y = 2。", a: "两式相加消 y：2x = 12，x = 6；代回去 y = 4。验算：6 + 4 = 10，6 − 4 = 2 ✓。" },
+      { q: "解方程组：2x + y = 11，x − y = 4。", a: "两式相加：3x = 15，x = 5；代回去 y = 1。验算：10 + 1 = 11，5 − 1 = 4 ✓。" },
+      { q: "解方程组 3x + 2y = 16、x + 2y = 8 时，两式相加还是相减能消元？消哪个？", a: "y 的系数都是 2，两式相减消 y：2x = 8，x = 4；再代回去得 y = 2。验算：12 + 4 = 16 ✓。" },
+    ],
+  },
+  {
+    title: "不等式三条基本性质",
+    items: [
+      { q: "由 x + 3 > 8，两边减 3，得什么？", a: "x > 5。两边加减同一个数，方向不变（性质1）。" },
+      { q: "由 −4x < 12，求 x。", a: "两边除以 −4 要变号（性质3）：x > −3。" },
+      { q: "由 2x > 6 得 x > 3，由 −2x > 6 得 x < −3。第二个为什么要变号？", a: "第一个除以正数 2，方向不变（性质2）；第二个除以负数 −2，方向必须改变（性质3）。" },
+    ],
+  },
+  {
+    title: "一元一次不等式：解法五步加数轴解集",
+    items: [
+      { q: "解不等式 3x − 5 > 4，并说说数轴上怎么画。", a: "3x > 9，x > 3。数轴上在 3 处画空心圈，向右画线。" },
+      { q: "解不等式 2(x − 1) ≤ 6，并说说数轴上怎么画。", a: "去括号：2x − 2 ≤ 6，2x ≤ 8，x ≤ 4。数轴上在 4 处画实心点，向左画线。" },
+      { q: "解不等式：−x + 4 ≥ 7。", a: "移项：−x ≥ 3，两边除以 −1 变号：x ≤ −3。" },
+    ],
+  },
+  {
+    title: "不等式组：解集口诀",
+    items: [
+      { q: "解不等式组：x > 1 且 x > 4。", a: "同大取大：x > 4。" },
+      { q: "解不等式组：x ≥ −1 且 x < 3。", a: "大小小大中间找：−1 ≤ x < 3。" },
+      { q: "不等式组 x > 6 且 x < 2 有解吗？", a: "没有。大大小小无处找，无解。" },
+    ],
+  },
+  {
+    title: "认识不等号：五种符号",
+    items: [
+      { q: "用符号表示：a 不小于 5；b 不超过 12。", a: "a ≥ 5；b ≤ 12。「不小于」就是大于或等于，「不超过」就是小于或等于。" },
+      { q: "x ≤ 7 表示 x 最大可以是几？", a: "7。≤ 带等号，可以相等。" },
+      { q: "有人把「不超过」写成 ≥，对吗？", a: "不对。不超过是 ≤（最多到这个数）；≥ 是不低于（最少是这个数），别弄反。" },
+    ],
+  },
+  {
+    title: "不等式的整数解：正整数解和最大整数解",
+    items: [
+      { q: "写出 x < 4 的全部正整数解。", a: "1、2、3。0 不是正整数，4 取不到。" },
+      { q: "解不等式 3x − 2 ≤ 10，并求它的最大整数解。", a: "3x ≤ 12，x ≤ 4，最大整数解是 4。" },
+      { q: "x ≤ 5 的非负整数解有几个？有人答 5 个。", a: "0、1、2、3、4、5，共 6 个，别漏掉 0。" },
+    ],
+  },
+  {
+    title: "不等式组例题：数轴上找公共部分",
+    items: [
+      { q: "解不等式组：x − 1 > 2 且 x ≤ 6。", a: "先分别解：x > 3，x ≤ 6。公共部分：3 < x ≤ 6。" },
+      { q: "解不等式组：2x > 4 且 3x ≤ 12。", a: "先分别解：x > 2，x ≤ 4。公共部分：2 < x ≤ 4。" },
+      { q: "不等式组 x > 5 且 x < 3 的公共部分是什么？", a: "没有公共部分，所以不等式组无解。" },
+    ],
+  },
+];
+
+const PRACTICE_B: PracticeDef[] = [
+  {
+    title: "减正数 = 加负数：数轴魔法",
+    items: [
+      { q: "把 9 − 4 改写成加法，再计算。", a: "9 + (−4) = 5。减正数等于加它的相反数。" },
+      { q: "计算：3 − 8。", a: "3 + (−8) = −5。数轴上从 3 向左走 8，落到 −5。" },
+      { q: "计算 −6 − (−2) 时有人写 −8，对吗？", a: "不对。减去一个负数等于加上正数：−6 + 2 = −4。" },
+    ],
+  },
+  {
+    title: "等差数列：通项公式与求和",
+    items: [
+      { q: "数列 5, 9, 13, 17, … 求第 6 项。", a: "公差是 4，第 6 项 = 5 + (6 − 1) × 4 = 25。" },
+      { q: "数列 3, 7, 11, 15, … 求前 5 项的和。", a: "第 5 项 = 3 + 4 × 4 = 19，和 = 5 × (3 + 19) ÷ 2 = 55。" },
+      { q: "求数列 2, 5, 8, 11, … 的第 10 项，有人算 2 + 10 × 3 = 32，对吗？", a: "不对。从第 1 项出发只走 9 个间隔：2 + 9 × 3 = 29。" },
+    ],
+  },
+  {
+    title: "等差数列像种树：为什么是 (n − 1)",
+    items: [
+      { q: "一排树每隔 3 米种一棵，从第 1 棵走到第 5 棵，一共走多少米？", a: "5 棵树只有 4 个间隔：4 × 3 = 12 米。" },
+      { q: "数列第一项是 7、公差是 3，把它想成种树，求第 8 项。", a: "走到第 8 项只跨 7 个间隔：7 + 7 × 3 = 28。" },
+      { q: "通项公式里为什么是 (n − 1)，不是 n？", a: "第 1 项是起点，还没走任何间隔；到第 n 项只跨过 n − 1 个间隔，就像 n 棵树只有 n − 1 个间隔。" },
+    ],
+  },
+  {
+    title: "正数前面的\"+\"号可以省略",
+    items: [
+      { q: "把 +7 和 +15 写成简化的样子。", a: "7 和 15。正数前面的 + 号可以直接省掉。" },
+      { q: "简化并计算：+9 + (+4)。", a: "9 + 4 = 13。开头的 + 省掉，中间的加号保留。" },
+      { q: "+10 + (+5) 有人简化成 105，对吗？", a: "不对。中间的 + 是加号不能省：10 + 5 = 15。" },
+    ],
+  },
+  {
+    title: "有理数全家福：分类图",
+    items: [
+      { q: "−3 属于哪几类数？（整数？负数？有理数？）", a: "−3 是负整数，也是有理数。" },
+      { q: "0 是正数吗？它属于有理数吗？", a: "0 既不是正数也不是负数；0 是整数，属于有理数。" },
+      { q: "−2.5 是整数吗？是负分数吗？", a: "不是整数。它是负分数（有限小数能化成分数），也是有理数。" },
+    ],
+  },
+  {
+    title: "相反数与绝对值",
+    items: [
+      { q: "−7 的相反数和绝对值分别是多少？", a: "相反数是 7，绝对值 |−7| = 7。" },
+      { q: "一个数的绝对值是 6，这个数可能是几？", a: "6 或 −6。数轴上到原点距离是 6 的点有两个。" },
+      { q: "|−3| 有人答 −3，对吗？", a: "不对。绝对值是到原点的距离，永远不会是负数：|−3| = 3。" },
+    ],
+  },
+  {
+    title: "有理数加减法：同号异号分开算",
+    items: [
+      { q: "计算：(−4) + (−9)。", a: "同号相加，取负号、绝对值相加：−13。" },
+      { q: "计算：(−11) + 6。", a: "异号相加，取绝对值较大的 − 号，绝对值相减：−5。" },
+      { q: "计算 4 − (−7) 时有人得 −3，对吗？", a: "不对。减负数变加正数：4 + 7 = 11。" },
+    ],
+  },
+  {
+    title: "有理数乘除法：先定符号再算数",
+    items: [
+      { q: "计算：(−5) × (−3)。", a: "同号得正：15。" },
+      { q: "计算：(−18) ÷ 3。", a: "异号得负：−6。" },
+      { q: "计算：(−2) × 3 × (−1)。", a: "一步步来：(−2) × 3 = −6，−6 × (−1) = 6。" },
+    ],
+  },
+  {
+    title: "平方根与算术平方根",
+    items: [
+      { q: "49 的平方根和算术平方根分别是多少？", a: "平方根是 ±7（两个），算术平方根是 7（正的那个）。" },
+      { q: "√81 等于几？81 的平方根呢？", a: "√81 = 9；81 的平方根是 ±9。根号 √ 默认只取正的。" },
+      { q: "−4 有平方根吗？", a: "没有。负数没有平方根，根号下面的数不能是负数。" },
+    ],
+  },
+  {
+    title: "开平方：先背平方数表",
+    items: [
+      { q: "√121 等于几？", a: "11。因为 11² = 121，反着查平方数表。" },
+      { q: "√196 等于几？", a: "14。因为 14² = 196。" },
+      { q: "√60 在哪两个整数之间？", a: "7² = 49 < 60 < 64 = 8²，所以在 7 和 8 之间。" },
+    ],
+  },
+  {
+    title: "二次根式化简与加减乘除",
+    items: [
+      { q: "化简：√20。", a: "√20 = √(4 × 5) = 2√5。把平方数 4 开出来。" },
+      { q: "计算：√27 + √3。", a: "先化简 √27 = 3√3，再合并：3√3 + √3 = 4√3。" },
+      { q: "√2 + √3 能合并成 √5 吗？", a: "不能。根号里的数不同不能直接合并：√2 + √3 ≈ 1.414 + 1.732 = 3.146，而 √5 ≈ 2.236，不相等。" },
+    ],
+  },
+  {
+    title: "立方根：负数也有份",
+    items: [
+      { q: "³√64 等于几？", a: "4。因为 4³ = 64。" },
+      { q: "³√(−27) 等于几？", a: "−3。因为 (−3)³ = −27。负数也有立方根。" },
+      { q: "³√8 有人写 ±2，对吗？", a: "不对。立方根只有一个：2。写 ± 是平方根的记法。" },
+    ],
+  },
+  {
+    title: "牛吃草问题：草在长，牛在吃",
+    items: [
+      { q: "牧场原有草量 60 份，每周新长 10 份，15 头牛每周共吃 15 份，能吃几周？", a: "设吃 t 周：60 + 10t = 15t，60 = 5t，t = 12 周。" },
+      { q: "还是这片牧场（原有 60 份、每周长 10 份），换成 20 头牛，能吃几周？", a: "60 + 10t = 20t，60 = 10t，t = 6 周。" },
+      { q: "有人算牛吃草时直接拿 60 ÷ 15 = 4 周，对吗？", a: "不对，他忘了草还在长。总草量 = 原有草量 + 生长的草，要列 60 + 10t = 15t，得 12 周。" },
+    ],
+  },
+  {
+    title: "存钱大作战：列不等式",
+    items: [
+      { q: "小丽有 20 元，每天存 4 元，存 x 天后要超过 36 元。列不等式，并求最少存几天。", a: "20 + 4x > 36，4x > 16，x > 4，所以至少存 5 天。" },
+      { q: "承上题：如果目标改成「至少 36 元」，最少存几天？答案和上题一样吗？", a: "20 + 4x ≥ 36，x ≥ 4，至少 4 天。不一样：「超过」不含等于，「至少」含等于。" },
+      { q: "「攒够 50 元以上」列式时用 > 还是 ≥？", a: "用 ≥。「以上」包含 50 本身。" },
+    ],
+  },
+  {
+    title: "植树问题：间隔数 = 棵数 − 1",
+    items: [
+      { q: "一条路的一边每隔 5 米种一棵树，两端都种，共种 9 棵。这条路长多少米？", a: "9 棵树有 8 个间隔：8 × 5 = 40 米。" },
+      { q: "路长 60 米，每隔 6 米种一棵树，两端都种，一共种几棵？", a: "间隔数 = 60 ÷ 6 = 10，棵数 = 10 + 1 = 11 棵。" },
+      { q: "圆形花坛周围种了 12 棵树，相邻两棵之间算一个间隔，一共有几个间隔？", a: "12 个。围成一圈时棵数 = 间隔数，和直路上不一样。" },
+    ],
+  },
+  {
+    title: "鸡兔同笼：假设法",
+    items: [
+      { q: "鸡兔同笼共 10 只，脚共 28 只。鸡、兔各几只？", a: "假设全是鸡：脚只有 20 只，差 8 只；每换一只兔多 2 只脚，兔 = 8 ÷ 2 = 4 只，鸡 = 6 只。验算：6×2 + 4×4 = 28 ✓。" },
+      { q: "鸡兔同笼共 20 只，脚共 54 只。鸡、兔各几只？", a: "假设全是鸡：脚 40 只，差 14 只，兔 = 14 ÷ 2 = 7 只，鸡 = 13 只。验算：13×2 + 7×4 = 54 ✓。" },
+      { q: "用假设法时，有人把差的脚数除以 4 得到兔数，对吗？", a: "不对。每把一只鸡换成一只兔，脚多 4 − 2 = 2 只，要除以 2，不是 4。" },
+    ],
+  },
+  {
+    title: "牛吃草：设份数列方程组",
+    items: [
+      { q: "一片牧场可供 10 头牛吃 20 天，或 15 头牛吃 10 天。设原有草量 x 份、每天新长 y 份，列方程组并求解。", a: "x + 20y = 10 × 20 = 200，x + 10y = 15 × 10 = 150。两式相减：10y = 50，y = 5；再得 x = 100。" },
+      { q: "承上题（原有草 100 份、每天长 5 份）：这片牧场最多养几头牛，草永远吃不完？", a: "每天新长的 5 份正好够 5 头牛吃，所以最多 5 头。" },
+      { q: "列牛吃草方程组时，右边为什么写「牛头数 × 天数」？", a: "每头牛每天吃 1 份，头数 × 天数就是一共吃掉的份数；它必须等于原有草量 + 新长草量。" },
+    ],
+  },
+  {
+    title: "牛吃草：什么时候草吃不完",
+    items: [
+      { q: "原有草量 90 份，每天新长 10 份，12 头牛来吃，能吃几天？", a: "t = 90 ÷ (12 − 10) = 45 天。老本除以每天净消耗。" },
+      { q: "还是这片牧场（原有 90 份、每天长 10 份），换成 9 头牛，草吃得完吗？", a: "吃不完。9 < 10，每天吃的比新长的还少，草只会越来越多。" },
+      { q: "原有草 50 份、每天长 8 份，正好 8 头牛吃，草会吃完吗？", a: "不会。每天吃掉的正好等于新长的，老本一直不动，永远吃不完。" },
+    ],
+  },
+  {
+    title: "勾股定理应用：梯子靠墙",
+    items: [
+      { q: "一架梯子长 10 米，斜靠在墙上，梯子脚离墙 6 米。梯子顶到地面多高？", a: "高 = √(10² − 6²) = √64 = 8 米。" },
+      { q: "一架梯子长 13 米，梯子顶到地面 12 米。梯子脚离墙多远？", a: "距离 = √(13² − 12²) = √25 = 5 米。" },
+      { q: "算梯子高度时有人用 √(10² + 6²)，对吗？", a: "不对。梯子是斜边，求直角边要用减法：√(10² − 6²) = 8。" },
+    ],
+  },
+  {
+    title: "列不等式：关键词定方向",
+    items: [
+      { q: "「身高至少 1.4 米才能玩这个项目」，用不等式表示身高 h。", a: "h ≥ 1.4。「至少」用 ≥，含等于。" },
+      { q: "「电梯限重 500 千克」，用不等式表示重量 w。", a: "w ≤ 500。「限重」就是不超过，用 ≤。" },
+      { q: "「温度不低于 −2℃」有人写成 t > −2，对吗？", a: "不对。「不低于」含等于：t ≥ −2。" },
+    ],
+  },
+];
+
+const PRACTICE_C: PracticeDef[] = [
+  {
+    title: "什么是同旁内角",
+    items: [
+      { q: "两条平行线被截线所截，一组同旁内角中一个是 70°，另一个是多少度？", a: "110°。两直线平行时同旁内角互补：180° − 70° = 110°。" },
+      { q: "两条平行线被截线所截，一组同旁内角中一个是另一个的 2 倍，两个角各是多少度？", a: "设小的为 x：x + 2x = 180°，x = 60°，另一个是 120°。" },
+      { q: "同旁内角一定相等吗？", a: "不一定。只有两直线平行时它们才互补；不平行时既不相等也不互补。" },
+    ],
+  },
+  {
+    title: "平行四边形的同旁内角互补",
+    items: [
+      { q: "平行四边形 ABCD 中 ∠A = 65°，求 ∠B。", a: "∠B = 115°。相邻的角是同旁内角，互补：180° − 65° = 115°。" },
+      { q: "承上题（∠A = 65°），再求 ∠C 和 ∠D。", a: "对角相等：∠C = ∠A = 65°，∠D = ∠B = 115°。验算：65 + 115 + 65 + 115 = 360° ✓。" },
+      { q: "平行四边形中 ∠A = 80°，有人说 ∠B 也是 80°，对吗？", a: "不对。相邻角互补，∠B = 100°；相等的是对角。" },
+    ],
+  },
+  {
+    title: "全等三角形判定五法",
+    items: [
+      { q: "两个三角形的三条边分别对应相等，能判定全等吗？用哪个方法？", a: "能，用 SSS。" },
+      { q: "两个三角形的两条边和它们的夹角对应相等，用哪个方法判定全等？", a: "SAS。注意必须是夹角，不是随便哪个角。" },
+      { q: "两边和其中一边的对角对应相等（SSA），能判定全等吗？", a: "不能。SSA 不在五法里，这样的两个三角形可能长得不一样。" },
+    ],
+  },
+  {
+    title: "线段加减：由 AE + CD = AD 推出 AC = AE",
+    items: [
+      { q: "已知 AE + CD = AD，AC + CD = AD。能推出哪两条线段相等？", a: "AC = AE。两式都等于 AD，也就是 AE 和 AC 加上同一段 CD 结果相同。" },
+      { q: "承上题：若 AE = 5、CD = 2，先求 AD，再求 AC。", a: "AD = AE + CD = 7；AC = AD − CD = 7 − 2 = 5，正好和 AE 相等。" },
+      { q: "看到 AE + CD = AD，有人直接说 AE = AD，对吗？", a: "不对，CD 还占着一份。只能说 AE = AD − CD。" },
+    ],
+  },
+  {
+    title: "叠在一起的三角形：分开画，对应看",
+    items: [
+      { q: "△ABC 和 △DEF 叠放在一起，AB 与 DE 是对应边，AB = 6。DE 是多少？", a: "6。先把两个三角形分开画，对应边相等。" },
+      { q: "分开画之后，已经找到一对对应边相等、一对对应角相等，想用 SAS 判定全等，还差什么？", a: "还差一对对应边相等，并且这两条边要正好夹着那对已知的角。" },
+      { q: "两个三角形叠在一起，看起来一样大，就能说它们全等吗？", a: "不能。必须凑齐 SSS、SAS、ASA、AAS、HL 中的一整组条件，眼睛看的不算数。" },
+    ],
+  },
+  {
+    title: "公共边：风筝形里的对角线",
+    items: [
+      { q: "风筝形 ABCD 中 AB = AD、CB = CD，△ABC 和 △ADC 全等吗？为什么？", a: "全等。AC 是两个三角形的公共边，三边对应相等，用 SSS。" },
+      { q: "承上题：证出全等后，能推出哪一对角相等？", a: "∠B = ∠D（对应角相等），还能推出 ∠BAC = ∠DAC。" },
+      { q: "公共边需要在题目给出的条件里找吗？", a: "不用。公共边就画在图里，是两个三角形共用的隐藏条件，做题时要自己找出来。" },
+    ],
+  },
+  {
+    title: "全等对应关系：看字母顺序，不看位置",
+    items: [
+      { q: "△ABC ≌ △DEF，边 AB 对应哪条边？", a: "DE。按字母顺序 A↔D、B↔E，所以 AB↔DE。" },
+      { q: "承上题：若 DE = 7、∠B = 50°，求 AB 和 ∠E。", a: "AB = DE = 7；∠E = ∠B = 50°。对应边、对应角相等。" },
+      { q: "△ABC ≌ △EFD 中，有人说 BC 对应 ED，对吗？", a: "不对。B↔F、C↔D，BC 对应 FD，不能看图形位置猜。" },
+    ],
+  },
+  {
+    title: "想证线段相等：先证两个三角形全等",
+    items: [
+      { q: "要证线段 AD = AE，第一步应该做什么？", a: "先看 AD、AE 分别在哪个三角形里，想办法证这两个三角形全等，对应边自然相等。" },
+      { q: "已知 AB = AC、∠B = ∠C，还有公共角 ∠A，用哪个方法证 △ACD ≌ △ABE？", a: "ASA：∠C、夹边 AC、∠A 分别对应 ∠B、夹边 AB、∠A。" },
+      { q: "证出两个三角形全等后，任意两条边都相等吗？", a: "不是。只有对应边才相等，要按对应关系去找。" },
+    ],
+  },
+  {
+    title: "平行四边形内错角相等",
+    items: [
+      { q: "平行四边形 ABCD 中 AB ∥ CD，对角线 AC 是截线，∠BAC = 35°。求 ∠DCA。", a: "∠DCA = 35°。它们是 AB、CD 被 AC 所截的内错角，平行时相等。" },
+      { q: "平行四边形 ABCD 中 AD ∥ BC，对角线 BD 是截线，∠ADB = 28°。求 ∠DBC。", a: "∠DBC = 28°，同样是内错角相等。" },
+      { q: "内错角相等需要什么前提？", a: "两条直线平行。不平行时，内错角不一定相等。" },
+    ],
+  },
+  {
+    title: "平行线判定：内错角相等，两直线平行",
+    items: [
+      { q: "直线 a、b 被一条截线所截，一组内错角都是 65°。a 和 b 平行吗？", a: "平行。内错角相等，两直线平行。" },
+      { q: "一组内错角分别是 70° 和 80°，能判定两直线平行吗？", a: "不能。内错角不相等，判定不成立，这两条直线不平行。" },
+      { q: "「平行 → 内错角相等」和「内错角相等 → 平行」有什么区别？", a: "前者是性质：已知平行，推出角相等；后者是判定：已知角相等，推出平行。方向正好相反，别用反了。" },
+    ],
+  },
+  {
+    title: "勾股定理：a² + b² = c²",
+    items: [
+      { q: "直角三角形的两条直角边是 6 和 8，斜边是多少？", a: "√(6² + 8²) = √100 = 10。" },
+      { q: "直角三角形的斜边是 15，一条直角边是 9，另一条直角边是多少？", a: "√(15² − 9²) = √144 = 12。求直角边用减法。" },
+      { q: "直角边是 5 和 12 时，有人把斜边算成 5 + 12 = 17，对吗？", a: "不对。要先平方、再相加、再开方：√(25 + 144) = √169 = 13。" },
+    ],
+  },
+  {
+    title: "勾股逆定理：判断是不是直角三角形",
+    items: [
+      { q: "三条边是 9、12、15 的三角形，是直角三角形吗？", a: "是。9² + 12² = 81 + 144 = 225 = 15² ✓。" },
+      { q: "三条边是 7、24、25 的三角形，是直角三角形吗？", a: "是。7² + 24² = 49 + 576 = 625 = 25² ✓。" },
+      { q: "三条边是 4、5、6 的三角形，有人算 4² + 5² = 41、6² = 36，就说是直角三角形，对吗？", a: "不对。41 ≠ 36，不满足 a² + b² = c²，不是直角三角形。判断时 c 要取最长边。" },
+    ],
+  },
+  {
+    title: "平面直角坐标系：横轴、纵轴和原点",
+    items: [
+      { q: "点 P(4, 3) 表示从原点怎么走能到达？", a: "先向右走 4，再向上走 3。坐标先横后纵。" },
+      { q: "点 Q(−2, 5) 在第几象限？", a: "第二象限。横坐标负、纵坐标正：(−, +)。" },
+      { q: "(3, 0) 和 (0, 3) 是同一个点吗？", a: "不是。(3, 0) 在 x 轴上，(0, 3) 在 y 轴上，坐标的顺序不能换。" },
+    ],
+  },
+  {
+    title: "四个象限的符号规律",
+    items: [
+      { q: "点 (−4, −6) 在第几象限？", a: "第三象限，符号是 (−, −)。" },
+      { q: "点 (7, −1) 在第几象限？", a: "第四象限，符号是 (+, −)。" },
+      { q: "点 (0, 5) 在第几象限？", a: "哪个象限都不在。它在 y 轴上，坐标轴上的点不属于任何象限。" },
+    ],
+  },
+  {
+    title: "点到两轴的距离：取绝对值",
+    items: [
+      { q: "点 P(5, −2) 到 x 轴、y 轴的距离各是多少？", a: "到 x 轴的距离是 |−2| = 2，到 y 轴的距离是 |5| = 5。" },
+      { q: "点 Q(−6, −8) 到 x 轴、y 轴的距离各是多少？", a: "到 x 轴 8，到 y 轴 6。距离取绝对值，永远不是负数。" },
+      { q: "点 (−3, 4) 到 x 轴的距离，有人答 3，对吗？", a: "不对。到 x 轴看纵坐标：|4| = 4；3 是到 y 轴的距离，别看反了。" },
+    ],
+  },
+  {
+    title: "对称点坐标：谁对称谁变号",
+    items: [
+      { q: "点 (3, −2) 关于 x 轴的对称点是什么？", a: "(3, 2)。关于 x 轴对称：横坐标不变，纵坐标变号。" },
+      { q: "点 (−5, 4) 关于原点的对称点是什么？", a: "(5, −4)。关于原点对称：两个坐标都变号。" },
+      { q: "点 (2, 6) 关于 y 轴的对称点，有人写 (2, −6)，对吗？", a: "不对。关于 y 轴是横坐标变号：(−2, 6)。(2, −6) 是关于 x 轴的对称点。" },
+    ],
+  },
+  {
+    title: "什么是向量：有大小又有方向",
+    items: [
+      { q: "下面哪个是向量：一个人的身高 170 厘米，还是「从家向东走 500 米」？", a: "「向东走 500 米」是向量（位移），它有大小又有方向；身高只有大小，是数量。" },
+      { q: "向量 a→ 的模是 5，b→ 与 a→ 是相等向量，b→ 的模是多少？", a: "5。相等向量大小相等、方向相同，模当然相等。" },
+      { q: "零向量的模是多少？它的方向呢？", a: "模是 0，方向任意（没有确定的方向）。" },
+    ],
+  },
+  {
+    title: "向量的加法和减法：首尾相连",
+    items: [
+      { q: "a→ = (1, 2)，b→ = (3, 1)，求 a→ + b→。", a: "(4, 3)。坐标分别相加：1 + 3 = 4，2 + 1 = 3。" },
+      { q: "承上题：求 a→ − b→。", a: "(−2, 1)。坐标分别相减：1 − 3 = −2，2 − 1 = 1。" },
+      { q: "用三角形法则做向量加法时，第二个向量应该怎么放？", a: "把它的起点搬到第一个向量的终点，首尾相连；两个向量放成同起点，用的是平行四边形法则，别混了。" },
+    ],
+  },
+  {
+    title: "向量的坐标、模和数乘",
+    items: [
+      { q: "a→ = (6, 8)，求 |a→|。", a: "√(6² + 8²) = √100 = 10。用勾股定理算模。" },
+      { q: "a→ = (2, −1)，求 3a→ 和 −2a→。", a: "3a→ = (6, −3)；−2a→ = (−4, 2)。数乘就是每个坐标都乘这个数。" },
+      { q: "a→ = (3, 4) 的模，有人算 3 + 4 = 7，对吗？", a: "不对。模用勾股定理：√(3² + 4²) = √25 = 5。" },
+    ],
+  },
+  {
+    title: "向量的数量积：算夹角、判垂直",
+    items: [
+      { q: "a→ = (2, 3)，b→ = (4, 1)，求 a→ · b→。", a: "2 × 4 + 3 × 1 = 8 + 3 = 11。对应坐标相乘再相加。" },
+      { q: "a→ = (3, −2)，b→ = (2, 3)，这两个向量垂直吗？", a: "垂直。数量积 = 3 × 2 + (−2) × 3 = 0，数量积为 0 就互相垂直。" },
+      { q: "数量积 a→ · b→ 算出来的结果是向量还是数？", a: "是一个数（所以叫数量积），不是向量。" },
+    ],
+  },
+];
+
+const PRACTICE_D: PracticeDef[] = [
+  {
+    title: "封装：把秘密藏进盒子里",
+    items: [
+      { q: "判断对错：遥控小车里，电池和马达属于内部（Private），遥控器属于外部（Public）。", a: "对。内部细节藏起来，只留遥控器这个开关给外面用。" },
+      { q: "思考题：为什么用电视机的人只需要会用遥控器，不用懂里面的线路？", a: "因为电视机把内部线路封装起来了，只留出遥控器和按钮这些接口。会用接口就能用，不必知道内部怎么工作。" },
+      { q: "判断对错：封装就是把东西全部锁死，让谁都不能用。", a: "错。封装是藏起内部细节，但会留出 Public 接口给外面正常使用。" },
+    ],
+  },
+  {
+    title: "类与对象：模板和实例",
+    items: [
+      { q: "填空：Dog 是 ___，按它造出来的「刀盾狗」是 ___。（填「类」或「对象」）", a: "Dog 是类（模板）；「刀盾狗」是对象（实例）。" },
+      { q: "看描述说结果：Dog 类有属性 name、age，方法 bark()。对象「刀盾狗」的 name 是刀盾狗、age 是 2。它的两个属性值分别是什么？bark() 算属性还是方法？", a: "name = 刀盾狗，age = 2；bark() 是方法（能做的动作），不是属性。" },
+      { q: "判断对错：哈士奇、柴犬都是狗，所以「类」就是某一条具体的狗。", a: "错。类是模板，具体的一条狗才是对象。" },
+    ],
+  },
+  {
+    title: "抽象与类：模板是怎么来的",
+    items: [
+      { q: "思考题：苹果、香蕉、梨被抽象成「水果」类，提炼出的共同点是什么？", a: "共同点是「都能吃」。抽象就是抓住共同点，再把它们定成类的属性和方法。" },
+      { q: "填空：做月饼先要有模具。抽象就像先做出一个 ___，再用它造出许多 ___。", a: "先做出一个模板（类），再造出许多对象。" },
+      { q: "判断对错：抽象就是把东西越说越模糊、把细节全都扔掉。", a: "错。抽象是抓住共同点、去掉各自不同的细节，留下规律做成模板，不是乱扔。" },
+    ],
+  },
+  {
+    title: "面向对象三要素：封装、继承、多态",
+    items: [
+      { q: "填空：「子类自动拥有父类的属性和方法」是三要素里的哪一个？", a: "继承。比如学生、员工都继承「人类」，人类会的东西他们都会。" },
+      { q: "思考题：小狗的「叫」是汪汪，小猫的「叫」是喵喵。同一个方法，不同对象做起来样子不同，这是哪一个要素？", a: "多态。" },
+      { q: "判断对错：子类继承父类之后，就不能再有自己的新本领了。", a: "错。子类在拥有父类属性和方法的基础上，还能加自己的新本领。" },
+    ],
+  },
+  {
+    title: "类是模具，对象是产品",
+    items: [
+      { q: "看代码说结果：class Cat 里有 __init__(self, name, color)，执行 cat1 = Cat(\"汤姆\", \"黑色\") 后，cat1 的 name 和 color 是什么？", a: "name 是「汤姆」，color 是「黑色」。创建对象时 __init__ 自动运行，把传进来的值赋给属性。" },
+      { q: "思考题：同一个 Cat 类造出 cat1 汤姆（黑色）和 cat2 泡面（白色），它们是同一个对象吗？", a: "不是。是两个不同的对象，只是出自同一个类，属性值各不相同，就像同一个模具压出的两个产品。" },
+      { q: "判断对错：一个类只能造出一个对象。", a: "错。一个模具可以生产许多产品，一个类可以创建很多对象。" },
+    ],
+  },
+  {
+    title: "Python 符号通关：点号、括号、冒号",
+    items: [
+      { q: "看代码说结果：cat1.meow() 里，点号 . 和小括号 () 分别是什么意思？", a: "点号是「访问它里面的东西」，这里访问 cat1 的 meow 方法；小括号是「启动这个动作」，千万不能忘。" },
+      { q: "填空：# 后面写的是 ___，程序运行时会理它吗？", a: "# 后面是注释，写给人看的，运行时不理它。" },
+      { q: "判断对错：self.name = name 里的等号 = 是「判断两个东西相等」的意思。", a: "错。= 是赋值：把右边传进来的值装进左边的属性里。" },
+    ],
+  },
+];
+
+// Practice for the v11 整式运算 cards (2026-11-25, batch E): 基础 /
+// 变式 / 易错 one each, questions and answers verbatim from the brief
+// (every result re-checked by expansion before being written here).
+const PRACTICE_E: PracticeDef[] = [
+  {
+    title: "同底数幂相乘：底数不变，指数相加",
+    items: [
+      { q: "3^2 × 3^5 = ？", a: "3^7 = 2187。指数相加：2 + 5 = 7。" },
+      { q: "x^3 · x^4 · x = ？", a: "x^8。注意 x 本身是 x^1，指数 3 + 4 + 1 = 8。" },
+      { q: "2^3 × 3^2 能直接用这个公式吗？", a: "不能。底数不同（一个 2 一个 3），要分别算：8 × 9 = 72。" },
+    ],
+  },
+  {
+    title: "幂的乘方与积的乘方",
+    items: [
+      { q: "(5^2)^3 = ？", a: "5^6 = 15625。指数相乘：2 × 3 = 6。" },
+      { q: "(2x)^3 = ？", a: "8x^3。2 和 x 都要立方：2^3 = 8，x^3 照写。" },
+      { q: "(a^2)^3 和 a^2 · a^3 结果一样吗？", a: "不一样。(a^2)^3 = a^6（乘指数）；a^2 · a^3 = a^5（加指数）。" },
+    ],
+  },
+  {
+    title: "单项式乘除：系数和字母分开算",
+    items: [
+      { q: "3x^2 · 4x^3 = ？", a: "12x^5。系数 3 × 4 = 12，x 的指数 2 + 3 = 5。" },
+      { q: "(−2a) · 5ab = ？", a: "−10a^2 b。系数 −2 × 5 = −10；a 的指数 1 + 1 = 2；b 照抄。" },
+      { q: "12x^5 ÷ 3x^2 = ？", a: "4x^3。系数 12 ÷ 3 = 4；指数是相减 5 − 2 = 3，不是相除。" },
+    ],
+  },
+  {
+    title: "多项式乘多项式：一项一项乘，不重不漏",
+    items: [
+      { q: "(x + 2)(x + 3) = ？", a: "x^2 + 5x + 6。x·x = x^2；x·3 + 2·x = 5x；2·3 = 6。" },
+      { q: "(2x − 1)(x + 3) = ？", a: "2x^2 + 5x − 3。2x·x = 2x^2；2x·3 − 1·x = 5x；(−1)·3 = −3。" },
+      { q: "(x + 4)(x − 4) 的最后一项是 +16 还是 −16？", a: "−16。4 × (−4) = −16，异号得负；整个结果是 x^2 − 16。" },
+    ],
+  },
+];
+
+const PRACTICE_BATCHES: ReadonlyArray<{
+  key: string;
+  defs: PracticeDef[];
+}> = [
+  { key: "practice_seeded_a", defs: PRACTICE_A },
+  { key: "practice_seeded_b", defs: PRACTICE_B },
+  { key: "practice_seeded_c", defs: PRACTICE_C },
+  { key: "practice_seeded_d", defs: PRACTICE_D },
+  { key: "practice_seeded_e", defs: PRACTICE_E },
+];
+
 // ---------- helpers ----------
 
 import type { Ctx } from "@hatch/space-sdk";
@@ -706,6 +1426,7 @@ async function buildLibrary(ctx: Ctx): Promise<z.infer<typeof libraryResponse>> 
       image_url: row.imageBlobKey
         ? await ctx.blobs.getUrl(row.imageBlobKey)
         : null,
+      practice: parsePractice(row.practice),
       created_at: row.createdAt.toISOString(),
     });
   }
@@ -758,6 +1479,7 @@ async function cardOut(
     image_url: row.imageBlobKey
       ? await ctx.blobs.getUrl(row.imageBlobKey)
       : null,
+    practice: parsePractice(row.practice),
     created_at: row.createdAt.toISOString(),
   };
 }
@@ -1443,6 +2165,132 @@ export const Actions = {
     },
   }),
 
+  seedLibraryV11: defineAction({
+    description:
+      "放入 2026-11-25 新补的 4 张整式运算卡（新分类「整式运算」，配图全部重画成干净示意图）；只在从未播种过 v11 时执行，重复调用不会重复加卡、不会覆盖用户后来的修改。",
+    request: z.object({}),
+    response: seedResponse,
+    privileged: [privileged.readSeedImagesV11],
+    handler: async (ctx): Promise<z.infer<typeof seedResponse>> => {
+      const db = ctx.db<typeof schema>();
+      const seededRows = await db
+        .select()
+        .from(schema.meta)
+        .where(eq(schema.meta.key, "seeded_v11"))
+        .limit(1);
+      if (seededRows.length > 0) {
+        return { seeded: false, seeded_cards: 0 };
+      }
+
+      for (const preset of PRESET_CATEGORIES) {
+        await db
+          .insert(schema.categories)
+          .values(preset)
+          .onConflictDoNothing();
+      }
+      // The new 整式运算 category the user asked for (skip if it
+      // somehow already exists — e.g. the user added it by hand).
+      // Orange is the one palette color no existing category uses.
+      const beforeCats = await db.select().from(schema.categories);
+      if (!beforeCats.some((c) => c.name === "整式运算")) {
+        const maxSort = beforeCats.reduce(
+          (m, c) => Math.max(m, c.sortOrder),
+          -1,
+        );
+        await db
+          .insert(schema.categories)
+          .values({ name: "整式运算", color: "orange", sortOrder: maxSort + 1 })
+          .onConflictDoNothing();
+      }
+      const catRows = await db.select().from(schema.categories);
+      const catByName = new Map(catRows.map((c) => [c.name, c]));
+
+      const { images } = await ctx.executePrivileged(
+        privileged.readSeedImagesV11,
+        {},
+      );
+      const imageBySlot = new Map(images.map((i) => [i.slot, i]));
+
+      const existingTitles = new Set(
+        (await db.select({ title: schema.cards.title }).from(schema.cards)).map(
+          (r) => r.title,
+        ),
+      );
+
+      let seededCards = 0;
+      for (const def of SEED_CARDS_V11) {
+        const cat = catByName.get(def.categoryName);
+        if (!cat || existingTitles.has(def.title)) continue;
+        let blobKey: string | null = null;
+        const img = imageBySlot.get(def.slot);
+        if (img) {
+          blobKey = `cards/seed-v11-${def.slot}`;
+          await ctx.blobs.put(blobKey, Buffer.from(img.dataBase64, "base64"), {
+            contentType: img.mimeType,
+          });
+        }
+        await db.insert(schema.cards).values({
+          title: def.title,
+          points: def.points,
+          categoryId: cat.id,
+          imageBlobKey: blobKey,
+        });
+        seededCards += 1;
+      }
+
+      await db
+        .insert(schema.meta)
+        .values({ key: "seeded_v11", value: "1" })
+        .onConflictDoNothing();
+      ctx.invalidateQueries();
+      return { seeded: true, seeded_cards: seededCards };
+    },
+  }),
+
+  seedPractice: defineAction({
+    description:
+      "给五批共 72 张卡补上每张 3 道练习题（批次 A 乘法公式/因式分解/方程、B 数与计算/应用题、C 几何、D 编程、E 整式运算）；每批只播一次（meta 标记），且只给练习还为空的卡填写，用户自己写过或改过的练习不会被覆盖，其他字段一律不动。",
+    request: z.object({}),
+    response: seedResponse,
+    handler: async (ctx): Promise<z.infer<typeof seedResponse>> => {
+      const db = ctx.db<typeof schema>();
+      const allCards = await db
+        .select({
+          id: schema.cards.id,
+          title: schema.cards.title,
+          practice: schema.cards.practice,
+        })
+        .from(schema.cards);
+      const byTitle = new Map(allCards.map((c) => [c.title, c]));
+
+      let filled = 0;
+      for (const batch of PRACTICE_BATCHES) {
+        const flag = await db
+          .select()
+          .from(schema.meta)
+          .where(eq(schema.meta.key, batch.key))
+          .limit(1);
+        if (flag.length > 0) continue;
+        for (const def of batch.defs) {
+          const card = byTitle.get(def.title);
+          if (!card) continue;
+          if (parsePractice(card.practice).length > 0) continue;
+          await db
+            .update(schema.cards)
+            .set({ practice: JSON.stringify(def.items) })
+            .where(eq(schema.cards.id, card.id));
+          filled += 1;
+        }
+        await db
+          .insert(schema.meta)
+          .values({ key: batch.key, value: "1" })
+          .onConflictDoNothing();
+      }
+      if (filled > 0) ctx.invalidateQueries();
+      return { seeded: filled > 0, seeded_cards: filled };
+    },
+  }),
+
   addCategory: defineAction({
     description: "新增一个知识分类，颜色按色板自动轮换分配。",
     request: z.object({
@@ -1521,12 +2369,13 @@ export const Actions = {
 
   addCard: defineAction({
     description:
-      "新增一张知识卡：标题、分类、要点文字，可带一张知识点总结图（base64）。",
+      "新增一张知识卡：标题、分类、要点文字，可带一张知识点总结图（base64）和可选的练习题（practiceText 一行一题，答案跟在「答：」后面）。",
     request: z.object({
       title: z.string().trim().min(1, "标题不能为空").max(120),
       points: z.string().trim().max(2000).default(""),
       categoryId: z.number().int().positive(),
       image: imageInput.nullable().default(null),
+      practiceText: z.string().trim().max(6000).default(""),
     }),
     response: cardResponse,
     handler: async (ctx, args): Promise<z.infer<typeof cardResponse>> => {
@@ -1540,6 +2389,7 @@ export const Actions = {
           points: args.points,
           categoryId: args.categoryId,
           imageBlobKey: blobKey,
+          practice: JSON.stringify(parsePracticeText(args.practiceText)),
         })
         .returning();
       const row = inserted[0];
@@ -1551,7 +2401,7 @@ export const Actions = {
 
   updateCard: defineAction({
     description:
-      "编辑一张知识卡的标题、分类和要点；传了新图就换图，removeImage 为 true 就去掉图，都不传则保留原图。",
+      "编辑一张知识卡的标题、分类、要点和练习题（practiceText 一行一题，答案跟在「答：」后面，清空则去掉练习）；传了新图就换图，removeImage 为 true 就去掉图，都不传则保留原图。",
     request: z.object({
       id: z.number().int().positive(),
       title: z.string().trim().min(1, "标题不能为空").max(120),
@@ -1559,6 +2409,7 @@ export const Actions = {
       categoryId: z.number().int().positive(),
       image: imageInput.nullable().default(null),
       removeImage: z.boolean().default(false),
+      practiceText: z.string().trim().max(6000).default(""),
     }),
     response: cardResponse,
     handler: async (ctx, args): Promise<z.infer<typeof cardResponse>> => {
@@ -1587,6 +2438,7 @@ export const Actions = {
           points: args.points,
           categoryId: args.categoryId,
           imageBlobKey: blobKey,
+          practice: JSON.stringify(parsePracticeText(args.practiceText)),
           updatedAt: new Date(),
         })
         .where(eq(schema.cards.id, args.id))

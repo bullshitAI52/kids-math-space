@@ -188,6 +188,33 @@ export function App() {
     seedV10.mutate();
   }, [library.data, seedV10]);
 
+  // One-time seeding of the 4 整式运算 cards (new category). Same
+  // pattern as the v10 seed: the action is idempotent server-side.
+  const seedV11Ref = useRef(false);
+  const seedV11 = useMutation({
+    mutationFn: () => api.seedLibraryV11({}),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["library"] }),
+  });
+  useEffect(() => {
+    if (!library.data || seedV11Ref.current) return;
+    seedV11Ref.current = true;
+    seedV11.mutate();
+  }, [library.data, seedV11]);
+
+  // One-time seeding of the practice questions (batches A–D, 3 per
+  // card). The action only fills cards whose practice is still empty,
+  // so user-written practice is never overwritten.
+  const seedPracticeRef = useRef(false);
+  const seedPractice = useMutation({
+    mutationFn: () => api.seedPractice({}),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["library"] }),
+  });
+  useEffect(() => {
+    if (!library.data || seedPracticeRef.current) return;
+    seedPracticeRef.current = true;
+    seedPractice.mutate();
+  }, [library.data, seedPractice]);
+
   const categories = useMemo(
     () => library.data?.categories ?? [],
     [library.data],
@@ -452,6 +479,56 @@ export function App() {
   );
 }
 
+function PracticeItem({
+  index,
+  question,
+  answer,
+  color,
+}: {
+  index: number;
+  question: string;
+  answer: string;
+  color: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <li>
+      <p className="text-[16px] font-bold leading-relaxed">
+        {index + 1}. {question}
+      </p>
+      {answer &&
+        (open ? (
+          <>
+            <p className="mt-1 whitespace-pre-line rounded-xl bg-white px-3 py-2 text-[16px] leading-relaxed">
+              <span className="font-extrabold" style={{ color }}>
+                答：
+              </span>
+              {answer}
+            </p>
+            <button
+              type="button"
+              aria-expanded={true}
+              onClick={() => setOpen(false)}
+              className="mt-1 rounded-full border-[3px] border-[var(--border)] bg-white px-3 py-1 text-[15px] font-bold text-[var(--dim)] active:scale-95"
+            >
+              收起答案
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            aria-expanded={false}
+            onClick={() => setOpen(true)}
+            className="mt-1 rounded-full border-[3px] px-3 py-1 text-[15px] font-extrabold active:scale-95"
+            style={{ borderColor: color, color }}
+          >
+            看答案
+          </button>
+        ))}
+    </li>
+  );
+}
+
 function CardItem({
   card,
   category,
@@ -512,6 +589,24 @@ function CardItem({
           <p className="mt-2 whitespace-pre-line text-[17px] leading-relaxed md:text-[18px]">
             {card.points}
           </p>
+        )}
+        {card.practice.length > 0 && (
+          <div className="mt-3 rounded-2xl bg-[#FFF9F0] p-3">
+            <p className="text-[16px] font-extrabold" style={{ color }}>
+              练一练（先自己想，再看答案）
+            </p>
+            <ol className="mt-2 flex flex-col gap-3">
+              {card.practice.map((item, i) => (
+                <PracticeItem
+                  key={i}
+                  index={i}
+                  question={item.q}
+                  answer={item.a}
+                  color={color}
+                />
+              ))}
+            </ol>
+          </div>
         )}
         <div className="mt-auto flex gap-2 pt-4">
           {confirming ? (
@@ -574,6 +669,13 @@ function CardEditor({
   const queryClient = useQueryClient();
   const [title, setTitle] = useState(card?.title ?? "");
   const [points, setPoints] = useState(card?.points ?? "");
+  const [practiceText, setPracticeText] = useState(
+    card
+      ? card.practice
+          .map((item) => (item.a ? `${item.q} 答：${item.a}` : item.q))
+          .join("\n")
+      : "",
+  );
   const [categoryId, setCategoryId] = useState<number | null>(
     card?.category_id ?? defaultCategoryId ?? categories[0]?.id ?? null,
   );
@@ -606,6 +708,7 @@ function CardEditor({
           categoryId: categoryId as number,
           image: img,
           removeImage: image.kind === "none",
+          practiceText: practiceText.trim(),
         });
       }
       return await api.addCard({
@@ -613,6 +716,7 @@ function CardEditor({
         points: points.trim(),
         categoryId: categoryId as number,
         image: img,
+        practiceText: practiceText.trim(),
       });
     },
     onSuccess: () => {
@@ -788,6 +892,27 @@ function CardEditor({
           placeholder="比如：找两个数，相加等于一次项系数，相乘等于常数项…"
           className="mt-1 w-full rounded-2xl border-[3px] border-[var(--border)] px-4 py-2.5 text-[17px] leading-relaxed outline-none focus:border-[var(--accent)]"
         />
+
+        <label
+          htmlFor="card-practice"
+          className="mt-4 block text-[16px] font-extrabold"
+        >
+          练习题（可选，一行一题）
+        </label>
+        <textarea
+          {...FIELDS.addCard.practiceText}
+          id="card-practice"
+          value={practiceText}
+          onChange={(e) => setPracticeText(e.target.value)}
+          rows={5}
+          placeholder={
+            "比如：计算 103² 答：(100 + 3)² = 10000 + 600 + 9 = 10609\n答案跟在题目后面，用「答：」起头就行"
+          }
+          className="mt-1 w-full rounded-2xl border-[3px] border-[var(--border)] px-4 py-2.5 text-[17px] leading-relaxed outline-none focus:border-[var(--accent)]"
+        />
+        <p className="mt-1 text-[14px] font-bold text-[var(--dim)]">
+          答案会先藏起来，孩子点「看答案」才展开；留空就是没有练习。
+        </p>
 
         {error && (
           <p role="alert" className="mt-3 text-[16px] font-bold text-[#B3261E]">

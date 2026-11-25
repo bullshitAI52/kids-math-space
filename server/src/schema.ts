@@ -24,6 +24,10 @@ export const cards = sqliteTable("cards", {
     .references(() => categories.id),
   // ctx.blobs key for the knowledge-summary image; null = text-only card.
   imageBlobKey: text("image_blob_key"),
+  // Practice questions as a JSON string: [{ q, a }] — question and
+  // answer (with a brief worked step) stored separately so the client
+  // can keep answers folded until the kid taps 看答案. "[]" = none yet.
+  practice: text("practice").notNull().default("[]"),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .notNull()
     .$defaultFn(() => new Date()),

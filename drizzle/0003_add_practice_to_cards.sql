@@ -1,0 +1,1 @@
+ALTER TABLE cards ADD COLUMN practice TEXT NOT NULL DEFAULT '[]';
