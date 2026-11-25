@@ -203,6 +203,59 @@
     margin-top:6px;font-size:16px;line-height:1.7;white-space:pre-line;
     color:rgba(255,255,255,.88);
   }
+
+  /* ---------- topic cards （专题） ---------- */
+  .pill-row{display:flex;align-items:center}
+  .topic-badge{
+    margin-left:8px;border:2px dashed;border-radius:999px;
+    padding:3px 10px;font-size:13px;font-weight:800;background:#fff;
+  }
+  .card .topic-cover{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+    width:100%;border:none;border-bottom:3px dashed;padding:16px;min-height:0;
+    aspect-ratio:4/3;background:#FBF6EC;flex-shrink:0;font-family:inherit;
+  }
+  .topic-cover .tc-big{font-size:30px;font-weight:900;letter-spacing:.06em}
+  .topic-cover .tc-sub{font-size:15px;font-weight:700;color:var(--dim)}
+
+  /* ---------- topic viewer ---------- */
+  .viewer{
+    position:fixed;inset:0;z-index:60;display:none;
+    flex-direction:column;background:var(--bg);
+  }
+  .viewer.open{display:flex}
+  .viewer .bar{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:calc(8px + env(safe-area-inset-top)) 16px 8px;
+    border-bottom:3px solid var(--border);background:var(--bg);flex-shrink:0;
+  }
+  .viewer .bar p{
+    min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-size:18px;font-weight:800;
+  }
+  .viewer .bar button{
+    flex-shrink:0;border:none;border-radius:999px;
+    background:#2B2118;color:#fff;padding:8px 18px;font-size:16px;font-weight:700;
+  }
+  .viewer .bar button:active{transform:scale(.95)}
+  .viewer iframe{flex:1;min-height:0;width:100%;border:0;background:#fff}
+  .viewer .comic-stage{
+    flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
+    overflow:auto;background:#2B2118;padding:8px;
+  }
+  .viewer .comic-stage img{max-width:100%;max-height:100%;object-fit:contain}
+  .viewer .comic-nav{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+    border-top:3px solid var(--border);background:var(--bg);
+  }
+  .viewer .comic-nav button{
+    border-radius:999px;padding:8px 20px;font-size:17px;font-weight:800;
+  }
+  .viewer .comic-nav .prev-btn{border:3px solid var(--border);background:#fff;color:var(--text)}
+  .viewer .comic-nav .next-btn{border:3px solid var(--accent);background:var(--accent);color:#fff}
+  .viewer .comic-nav button:disabled{opacity:.4}
+  .viewer .comic-nav .page-no{font-size:16px;font-weight:700;color:var(--dim)}
 </style>
 </head>
 <body>
@@ -249,6 +302,22 @@
   </div>
 </div>
 
+<div class="viewer" id="topicViewer" role="dialog" aria-modal="true">
+  <div class="bar">
+    <p id="viewerTitle"></p>
+    <button type="button" id="viewerClose">关闭</button>
+  </div>
+  <iframe id="viewerFrame" title="专题内容" sandbox="allow-scripts" style="display:none"></iframe>
+  <div class="comic-stage" id="comicStage" style="display:none">
+    <img id="comicImg" src="" alt="漫画页">
+  </div>
+  <div class="comic-nav" id="comicNav" style="display:none">
+    <button type="button" class="prev-btn" id="comicPrev">← 上一页</button>
+    <span class="page-no" id="comicPageNo"></span>
+    <button type="button" class="next-btn" id="comicNext">下一页 →</button>
+  </div>
+</div>
+
 <script src="data.js"></script>
 <script>
 (function () {
@@ -260,7 +329,8 @@
     { name: "几何",     color: "#00A896" },
     { name: "应用题",   color: "#FF6FA5" },
     { name: "编程",     color: "#D9930D" },
-    { name: "整式运算", color: "#FF8A00" }
+    { name: "整式运算", color: "#FF8A00" },
+    { name: "数学漫画", color: "#FF6FA5" }
   ];
   var colorOf = {};
   CATEGORIES.forEach(function (c) { colorOf[c.name] = c.color; });
@@ -354,30 +424,64 @@
       article.className = "card";
       article.style.borderColor = color;
 
-      var imgBtn = document.createElement("button");
-      imgBtn.type = "button";
-      imgBtn.className = "img-btn";
-      imgBtn.setAttribute("aria-label", "放大看图：" + card.title);
-      var img = document.createElement("img");
-      img.src = card.image;
-      img.alt = card.title;
-      img.decoding = "async";
-      if (idx < 10) {
-        img.loading = "eager";
+      if (card.kind === "page" || card.kind === "comic") {
+        var cover = document.createElement("button");
+        cover.type = "button";
+        cover.className = "topic-cover";
+        cover.style.borderColor = color;
+        cover.setAttribute("aria-label", "打开专题：" + card.title);
+        var big = document.createElement("span");
+        big.className = "tc-big";
+        big.style.color = color;
+        big.textContent = card.kind === "comic" ? "漫画" : "专题";
+        cover.appendChild(big);
+        var sub = document.createElement("span");
+        sub.className = "tc-sub";
+        sub.textContent = card.kind === "comic"
+          ? "共 " + (card.pages ? card.pages.length : 0) + " 页 · 点开翻页看"
+          : "点开在页面里看 / 玩";
+        cover.appendChild(sub);
+        (function (c) {
+          cover.addEventListener("click", function () { openTopic(c); });
+        })(card);
+        article.appendChild(cover);
       } else {
-        img.loading = "lazy";
+        var imgBtn = document.createElement("button");
+        imgBtn.type = "button";
+        imgBtn.className = "img-btn";
+        imgBtn.setAttribute("aria-label", "放大看图：" + card.title);
+        var img = document.createElement("img");
+        img.src = card.image;
+        img.alt = card.title;
+        img.decoding = "async";
+        if (idx < 10) {
+          img.loading = "eager";
+        } else {
+          img.loading = "lazy";
+        }
+        imgBtn.appendChild(img);
+        imgBtn.addEventListener("click", function () { openLightbox(idx); });
+        article.appendChild(imgBtn);
       }
-      imgBtn.appendChild(img);
-      imgBtn.addEventListener("click", function () { openLightbox(idx); });
-      article.appendChild(imgBtn);
 
       var body = document.createElement("div");
       body.className = "body";
+      var pillRow = document.createElement("div");
+      pillRow.className = "pill-row";
       var pill = document.createElement("span");
       pill.className = "pill";
       pill.style.backgroundColor = color;
       pill.textContent = card.category;
-      body.appendChild(pill);
+      pillRow.appendChild(pill);
+      if (card.kind) {
+        var tbadge = document.createElement("span");
+        tbadge.className = "topic-badge";
+        tbadge.style.borderColor = color;
+        tbadge.style.color = color;
+        tbadge.textContent = "专题";
+        pillRow.appendChild(tbadge);
+      }
+      body.appendChild(pillRow);
       var h = document.createElement("h2");
       h.textContent = card.title;
       body.appendChild(h);
@@ -524,6 +628,77 @@
     if (e.key === "Escape") closeLightbox();
     else if (e.key === "ArrowLeft") stepLb(-1);
     else if (e.key === "ArrowRight") stepLb(1);
+  });
+
+  /* ---------- topic viewer （专题：教程 iframe / 漫画翻页） ---------- */
+  var COMIC_RAW_BASE = "https://raw.githubusercontent.com/bullshitAI52/mathmanhua123/main/";
+  var viewer = document.getElementById("topicViewer");
+  var viewerTitle = document.getElementById("viewerTitle");
+  var viewerFrame = document.getElementById("viewerFrame");
+  var comicStage = document.getElementById("comicStage");
+  var comicImg = document.getElementById("comicImg");
+  var comicNav = document.getElementById("comicNav");
+  var comicPageNo = document.getElementById("comicPageNo");
+  var comicPrev = document.getElementById("comicPrev");
+  var comicNext = document.getElementById("comicNext");
+  var topicCard = null;
+  var comicPage = 0;
+
+  function showComicPage() {
+    if (!topicCard || !topicCard.pages) return;
+    var name = topicCard.pages[comicPage];
+    comicImg.src = COMIC_RAW_BASE + encodeURIComponent(name);
+    comicImg.alt = "漫画数学 第 " + (comicPage + 1) + " 页";
+    comicPageNo.textContent = "第 " + (comicPage + 1) + " / " + topicCard.pages.length + " 页";
+    comicPrev.disabled = comicPage === 0;
+    comicNext.disabled = comicPage >= topicCard.pages.length - 1;
+    var next = topicCard.pages[comicPage + 1];
+    if (next) {
+      var pre = new Image();
+      pre.src = COMIC_RAW_BASE + encodeURIComponent(next);
+    }
+    comicStage.scrollTop = 0;
+  }
+  function openTopic(card) {
+    topicCard = card;
+    viewerTitle.textContent = card.title;
+    if (card.kind === "comic") {
+      comicPage = 0;
+      viewerFrame.style.display = "none";
+      viewerFrame.removeAttribute("srcdoc");
+      comicStage.style.display = "flex";
+      comicNav.style.display = "flex";
+      showComicPage();
+    } else {
+      comicStage.style.display = "none";
+      comicNav.style.display = "none";
+      comicImg.src = "";
+      viewerFrame.style.display = "block";
+      viewerFrame.srcdoc = card.html || "";
+    }
+    viewer.classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+  function closeTopic() {
+    viewer.classList.remove("open");
+    viewerFrame.removeAttribute("srcdoc");
+    comicImg.src = "";
+    topicCard = null;
+    document.body.style.overflow = "";
+  }
+  function stepComic(d) {
+    if (!topicCard || topicCard.kind !== "comic") return;
+    var n = Math.min(Math.max(comicPage + d, 0), topicCard.pages.length - 1);
+    if (n !== comicPage) { comicPage = n; showComicPage(); }
+  }
+  comicPrev.addEventListener("click", function () { stepComic(-1); });
+  comicNext.addEventListener("click", function () { stepComic(1); });
+  document.getElementById("viewerClose").addEventListener("click", function () { closeTopic(); });
+  document.addEventListener("keydown", function (e) {
+    if (!viewer.classList.contains("open")) return;
+    if (e.key === "Escape") closeTopic();
+    else if (e.key === "ArrowLeft") stepComic(-1);
+    else if (e.key === "ArrowRight") stepComic(1);
   });
 
   render();
